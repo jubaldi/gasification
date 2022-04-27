@@ -13,6 +13,7 @@ edited using any spreadsheet editor to add new fuel compounds.
 # FIXME: 2013/05/25 Not possible to use a list of single value as parameter to 
 # functions.
 # FIXME: 2022/04/15 Ask professor if no data should return 0 or np.nan.
+# TODO: 2022/04/27 Create functions: from fuelID and mass get Mix, from Mix get mass.
 
 #==============================================================================
 # import libraries

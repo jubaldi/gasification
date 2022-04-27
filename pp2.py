@@ -32,6 +32,8 @@ f = ct.Mixture([(s,1),(g,1)])
 # preallocate variable
 nsp = f.n_species
 
+airMix = ct.Mixture([(air,1)])
+print(airMix.species_moles)
 # get species names as lists
 names_s = s.species_names
 names_g = g.species_names
