@@ -14,6 +14,9 @@ edited using any spreadsheet editor to add new fuel compounds.
 # functions.
 # FIXME: 2022/04/15 Ask professor if no data should return 0 or np.nan.
 # TODO: 2022/04/27 Create functions: from fuelID and mass get Mix, from Mix get mass.
+# TODO: 2022/04/18 Ash composition and biochemical composition should be in csv.
+# TODO: 2022/05/01 Find ash composition for petroleum coke.
+# TODO: 2022/05/01 Add a cantera mixture for steam + water.
 
 #==============================================================================
 # import libraries
@@ -24,116 +27,59 @@ import csv
 import pp
 
 # Create a dataframe from the csv
-with open('fuels.csv','r') as f:
-    fuels = pd.read_csv(f, sep=',', header=0, index_col=0)
-    f.close()
+with open('fuels.csv','r') as f1:
+    fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
+    f1.close()
 
 # create a list of the fuel names from the first column of the dataframe
 myID = fuels.index.values
 
-def description(fuelID):
-    """
-    Get the description for a single fuel or list of fuels.
-    These fuels must be available in the database (file: 'fuels.csv'). 
-        
-    Parameters
-    ----------
-    fuelID : str | list
-        The fuel ID or list of fuel IDs.
-        
-    Returns
-    -------
-    description : list
-        A list containing the description for each fuel as a string.
-    """
-    if isinstance(fuelID, str):
-        return [fuels.loc[fuelID]['Description']]
-    else:
-        return [fuels.loc[i]['Description'] for i in fuelID]
+# Description, Type, Category, etc: read directly using fuels.loc
+# Moisture, FC, VM: read directly then divide by 100
+# HHV, LHV: read directly
+# C, H, O, N, S, Cl: read directly then divide by 100
 
-def fuelType(fuelID):
-    '''
-    Get the fuel type for a list of fuels. 
-    These fuels must be available in the database (file: 'fuels.csv').
-    
-    Parameters
-    ----------
-    fuelID : str | list
-        The fuel ID or list of fuel IDs.
-
-    Returns
-    -------
-    fuelType : list
-        Fuel type
-    '''
-    if isinstance(fuelID, str):
-        return [fuels.loc[fuelID]['Type']]
-    else:
-        return [fuels.loc[i]['Type'] for i in fuelID]
-
-def category(fuelID):
-    """
-    Get the category for a list of fuels. 
-    These fuels must be available in the database (file: 'fuels.csv').
-
-    Parameters
-    ----------
-    fuelID : str | list
-        The fuel ID or list of fuel IDs.
-
-    Returns
-    -------
-    category : list
-        Category
-    """
-    if isinstance(fuelID, str):
-        return [fuels.loc[fuelID]['Category']]
-    else:
-        return [fuels.loc[i]['Category'] for i in fuelID]
-
-def moisture(fuelID):
-    """
-    Get the moisture fraction value for a list of fuels. 
-    These fuels must be available in the database (file: 'fuels.csv').
-
-    Parameters
-    ----------
-    fuelID : str | list
-        The fuel ID or list of fuel IDs.
-
-    Returns
-    -------
-    moist : list of float
-        Moisture fraction [kg/kg]
-    """
-    if isinstance(fuelID, str):
-        return [fuels.loc[fuelID]['Lower moisture']/100]
-    else:
-        return [fuels.loc[i]['Lower moisture']/100 for i in fuelID]
+with open('ashcomp.csv', 'r') as f2:
+    ashcomp = pd.read_csv(f2, sep=',', header=0, index_col=0)
+    f2.close()
 
 def ash(fuelID):
     '''
-    Get the ash fraction value for a list of fuels. 
-    These fuels must be available in the database (file: 'fuels.csv').
+    Get the ash fraction value for a given fuel. 
+    The fuel must be available in the database (file: 'fuels.csv').
     
-    Default values are used if there are not available. Those values are
+    Default values are used if they are not available. Those values are
     chosen from VASSILEV et al. (2013) according to type and category of fuel.
 
     Parameters
     ----------
-    fuelID : str | list
-        The fuel ID or list of fuel IDs.
+    fuelID : str
+        The fuel ID as given by the CSV.
 
     Returns
     -------
-    ash : list of float
+    ash : float
         Ash fraction [kg/kg]
     composition : ndarray
         Composition of ash fraction [kg/kg]
     '''
-    if isinstance(fuelID, list):
-        ash = [fuels.loc[i]['Ash']/100 for i in fuelID]
-        composition = 0
-    return {'fraction':ash, 'composition': composition}
+    ash = fuels.loc[fuelID]['Ash']/100
+    comp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
+    if pd.isnull(comp.loc['SiO2']) and pd.isnull(comp.loc['CaO']):
+        if ash == 0:
+            fuelType = 'Other'
+            fuelCategory = 'Other'
+        else:
+            fuelType = fuels.loc[fuelID]['Type']
+            if pd.isnull(fuels.loc[fuelID]['Category']):
+                fuelCategory = 'Other'
+            else:
+                fuelCategory = fuels.loc[fuelID]['Category']
+        a1 = ashcomp.loc[ashcomp['Type']==fuelType]
+        a2 = a1.loc[a1['Category']==fuelCategory]
+        composition = a2.loc['SiO2':'Cr2O3']/100
+    else:
+        composition = comp
+    return ash, composition
 
-# TODO: 2022/04/18 Ash composition and biochemical composition should be in csv.
+print(ash('Cedar'))
