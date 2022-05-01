@@ -17,6 +17,9 @@ edited using any spreadsheet editor to add new fuel compounds.
 # TODO: 2022/04/18 Biochemical composition should be in csv.
 # TODO: 2022/05/01 Find ash composition for petroleum coke.
 # TODO: 2022/05/01 Add a cantera mixture for steam + water.
+# TODO: 2022/05/01 Find heating values HHV and LHV from correlations.
+
+# TODO LATER: 2022/05/01 Get heat of formation.
 
 #==============================================================================
 # import libraries
@@ -125,5 +128,37 @@ def ashComp(fuelID):
 
     return comp
 
-a = ashComp('CH4')
-print(a)
+def fuelComp(fuelID):
+    '''
+    Get the full mass composition for the fuel.
+    The fuel must be available in the database (file: 'fuels.csv').
+
+    Parameters
+    ----------
+    fuelID : str
+        The fuel ID as given by the CSV.
+
+    Returns
+    -------
+    fuelComp : ndarray
+        An array representing the mass composition of each species.
+    '''
+
+
+def getFuelMix(fuelID, fuelMass):
+    '''
+    Create a Cantera 'Mixture' object representing the given fuel.
+
+    Parameters
+    ----------
+    fuelID : str
+        The fuel ID as given by the CSV.
+    fuelMass : float
+        The fuel mass [kg]
+
+    Returns
+    -------
+    fuelMix : Cantera 'Mixture' object
+        The fuel mixture object.
+    '''
+    return 0
