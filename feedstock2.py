@@ -14,7 +14,7 @@ edited using any spreadsheet editor to add new fuel compounds.
 # functions.
 # FIXME: 2022/04/15 Ask professor if no data should return 0 or np.nan.
 # TODO: 2022/04/27 Create functions: from fuelID and mass get Mix, from Mix get mass.
-# TODO: 2022/04/18 Ash composition and biochemical composition should be in csv.
+# TODO: 2022/04/18 Biochemical composition should be in csv.
 # TODO: 2022/05/01 Find ash composition for petroleum coke.
 # TODO: 2022/05/01 Add a cantera mixture for steam + water.
 
@@ -23,7 +23,6 @@ edited using any spreadsheet editor to add new fuel compounds.
 #==============================================================================
 import numpy as np
 import pandas as pd
-import csv
 import pp
 
 # Create a dataframe from the csv
@@ -39,13 +38,40 @@ myID = fuels.index.values
 # HHV, LHV: read directly
 # C, H, O, N, S, Cl: read directly then divide by 100
 
-with open('ashcomp.csv', 'r') as f2:
-    ashcomp = pd.read_csv(f2, sep=',', header=0, index_col=0)
+with open('ashes.csv', 'r') as f2:
+    ashes = pd.read_csv(f2, sep=',', header=0, index_col=0)
     f2.close()
 
 def ash(fuelID):
     '''
     Get the ash fraction value for a given fuel. 
+    The fuel must be available in the database (file: 'fuels.csv').
+
+    Parameters
+    ----------
+    fuelID : str
+        The fuel ID as given by the CSV.
+
+    Returns
+    -------
+    ashF : float
+        Ash fraction [kg/kg]
+    '''
+
+    readAsh = fuels.loc[fuelID]['Ash']/100
+
+    if pd.isnull(readAsh):
+        ashF = 0
+    else:
+        ashF = readAsh
+
+    return ashF
+
+
+def ashComp(fuelID):
+    '''
+    Get the ash composition for a given fuel. 
+    SiO2 CaO Al2O3 Fe2O3 Na2O K2O MgO P2O5 TiO2 SO3 Cr2O3
     The fuel must be available in the database (file: 'fuels.csv').
     
     Default values are used if they are not available. Those values are
@@ -58,28 +84,46 @@ def ash(fuelID):
 
     Returns
     -------
-    ash : float
-        Ash fraction [kg/kg]
-    composition : ndarray
-        Composition of ash fraction [kg/kg]
+    comp : ndarray
+        Composition of ash [kg/kg]
     '''
-    ash = fuels.loc[fuelID]['Ash']/100
-    comp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
-    if pd.isnull(comp.loc['SiO2']) and pd.isnull(comp.loc['CaO']):
-        if ash == 0:
-            fuelType = 'Other'
-            fuelCategory = 'Other'
-        else:
-            fuelType = fuels.loc[fuelID]['Type']
-            if pd.isnull(fuels.loc[fuelID]['Category']):
-                fuelCategory = 'Other'
-            else:
-                fuelCategory = fuels.loc[fuelID]['Category']
-        a1 = ashcomp.loc[ashcomp['Type']==fuelType]
-        a2 = a1.loc[a1['Category']==fuelCategory]
-        composition = a2.loc['SiO2':'Cr2O3']/100
-    else:
-        composition = comp
-    return ash, composition
+    ashF = ash(fuelID)
+    rComp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
 
-print(ash('Cedar'))
+    compDF = 0
+
+    # If ash fraction is 0, ash composition doesn't matter
+    if ashF == 0:
+        comp = np.ones(len(rComp))/len(rComp)
+
+    else:
+        comp = np.zeros(len(rComp))
+
+    # If ash composition is not given by csv,
+    # use values from Vassilev2013 given Type and Category
+        if pd.isnull(rComp['SiO2']) and pd.isnull(rComp['CaO']):
+            rType = fuels.loc[fuelID]['Type']
+            rCat = fuels.loc[fuelID]['Category']
+            if rType in ashes['Type'].values: 
+                fType = rType
+            else:
+                fType = 'Other'
+            if rCat in ashes['Category'].values: 
+                fCat = rCat
+            else:
+                fCat = 'Other'
+            compDF = ashes.loc[ashes['Type']==fType][ashes['Category']==fCat]
+            comp = compDF.loc[:,'SiO2':'Cr2O3'].values[0]/100
+
+    # If ash composition is given by csv, use it
+        else:
+            for index, species in enumerate(rComp):
+                if pd.isnull(species):
+                    comp[index] = 0
+                else:
+                    comp[index] = species
+
+    return comp
+
+a = ashComp('CH4')
+print(a)
