@@ -6,12 +6,15 @@ processes. It uses some predefined functions from Cantera package.
 @author = Rodolfo Rodrigues
 @contact = rodolfo.rodrigues@ufsm.br
 @data = April, 2012, rev.: June, 2013 (adapted to use cython Cantera)
+
+TODO: 2022/05/02 Create function to convert between air, o2, ER and between steam, SR.
 """
+
 #==============================================================================
 # import libraries/files
 #==============================================================================
-import pp
-import pp2
+import pp as ppold
+import pp2 as pp
 import feedstock
 import feedstock2 as fs
 import cantera as ct
@@ -31,7 +34,7 @@ one = np.ones(1)
 #==============================================================================
 # special functions
 #==============================================================================
-def getFeed(fuelMix, moist=0.0, air=0.0, o2=0.0, steam=0.0):
+def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
     '''
     This function creates a mixture of phases to denote the fuel.
     The fuel is composed as a mixture of char, gas, ash, and moisture phases.
@@ -44,8 +47,6 @@ def getFeed(fuelMix, moist=0.0, air=0.0, o2=0.0, steam=0.0):
         Mass fraction of moisture fuel [kg/kg] (default value is zero)
     air : float
         Mass amount of air [kg] (default value is zero)
-    o2 : float
-        Mass amount of pure O2 [kg] (default value is zero)
     steam : float
         Mass amount of steam [kg] (default value is zero)
 
@@ -55,34 +56,34 @@ def getFeed(fuelMix, moist=0.0, air=0.0, o2=0.0, steam=0.0):
         Object representing the mixture of phases in the feedstock.
     '''
 
-    feed = pp2.f
+    feed = pp.f
 
-    mw = np.fromiter(pp2.Mw.values(), dtype=float) # molecular weights
+    mw = np.fromiter(pp.Mw.values(), dtype=float) # molecular weights
     fuelMoles = fuelMix.species_moles # moles for each species
     fuelMass = fuelMoles * mw / 1000 # fuel mass in kg for each species
     totalFuelMass = np.sum(fuelMass) # total fuel mass in kg
 
     moistMass = moist * totalFuelMass # mass of d.b. moisture in kg
-    moistMoles = moistMass / pp2.Mw['H2O'] # moles of d.b. moisture
+    moistMoles = moistMass / pp.Mw['H2O'] # moles of d.b. moisture
     
-    steamMoles = steam / pp2.Mw['H2O'] # moles of steam
+    steamMoles = steam / pp.Mw['H2O'] # moles of steam
 
     H2OMoles = moistMoles + steamMoles # total moles of water
 
-    airO2Moles = 0.23211606*air/pp2.Mw['O2']
-    airN2Moles = 0.75507754*air/pp2.Mw['N2']
-    airArMoles = 0.01280640*air/pp2.Mw['Ar']
+    airO2Moles = 0.23211606*air/pp.Mw['O2']
+    airN2Moles = 0.75507754*air/pp.Mw['N2']
+    airArMoles = 0.01280640*air/pp.Mw['Ar']
 
-    pureO2Moles = o2 / pp2.Mw['O2'] # moles of pure O2
+    #pureO2Moles = O2 / pp.Mw['O2'] # moles of pure O2
 
-    O2Moles = pureO2Moles + airO2Moles # total moles of O2
+    O2Moles = airO2Moles #+ pureO2Moles total moles of O2
 
     feedMoles = np.zeros(len(feed.species_names))
     feedMoles += fuelMoles
-    feedMoles[pp2.i['H2O']] += H2OMoles
-    feedMoles[pp2.i['O2']] += O2Moles
-    feedMoles[pp2.i['N2']] += airN2Moles
-    feedMoles[pp2.i['Ar']] += airArMoles
+    feedMoles[pp.i['H2O']] += H2OMoles
+    feedMoles[pp.i['O2']] += O2Moles
+    feedMoles[pp.i['N2']] += airN2Moles
+    feedMoles[pp.i['Ar']] += airArMoles
     feed.species_moles = feedMoles
 
     return feed
@@ -127,34 +128,83 @@ def get_h_cp(mix, value='h,cp', duty=0.0):
     else:
         return h, cp
 
-def equilibrateTP(mix, T=1273.15, P=ct.one_atm):
-    """
-    Isothermic multi-phase equilibrium calculation holding temperature and 
-    pressure fixed.
+def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
+                    oType='airMass', oValue = 0.5, sType='mass', sValue=0.0,
+                    species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     
-    The enthalpy of feedstocks/reagents (fuel, air, and steam) does not matter 
-    for calculation of products in this approach.
+    '''
+    Isothermal gasification calculation for a single fuel in a given condition.
 
     Parameters
     ----------
-    mix : Cantera 'Mixture' object
-        Object representing feedstock as given by getFeed function.
+    fuelID : str
+        ID of fuel as given by the database (fuels.csv)
+    fuelMass : float
+        The fuel mass [kg]
+    moisture : float
+        The moisture mass fraction, dry base [kg/kg]
     T : float
-        Temperature [K] (default = 1273.15 K)
+        Temperature [K]
     P : float
-        Pressure [Pa] (default = 1 atm)
+        Pressure [Pa]
+    oType : str
+        Oxidizer type
+    oValue : float
+        Oxidizer value [kg air] [kg O2] [kg/kg]
+    sType : str
+        Steam type
+    sValue : float
+        Steam value [kg] [mol] [kg/kg]
+    species : list
+        List of species to include in the calculation.
 
     Returns
     -------
     outlet : Cantera 'Mixture' object
         Object representing the mixture at equilibrium.
-    """
-    f = mix
-    f.T = T
-    f.P = P
-    f.equilibrate('TP')
-    outlet = f
+    '''
+    
+    # Verify type of oxidizer given
+    if oType == 'airMass':
+        air = oValue
+        O2 = 0
+        ER = 0
+    elif oType == 'O2':
+        air = 0
+        O2 = oValue
+        ER = 0
+    elif oType == 'ER':
+        air = 0
+        O2 = 0
+        ER = oValue
+    else:
+        raise ValueError('Invalid oxidizer type')
+    
+    # Verify type of steam given
+    if sType == 'mass':
+        steam = sValue
+    elif sType == 'moles':
+        steam = 0
+    elif sType == 'ratio':
+        steam = 0
+    else:
+        raise ValueError('Invalid steam type')
+
+    # Create fuel mix
+    fuelMix = fs.getFuelMix(fuelID, fuelMass)
+
+    # Create feed
+    feed = getFeed(fuelMix, moisture, air, steam)
+
+    # Calculate equilibrium
+    feed.T, feed.P = T, P
+    outlet = feed.equilibrate('TP')
+
     return outlet
+
+test = isotGasification('Almond', 100, 0.01, 500, 2, 0, 0, 0.5, 0, 0)
+
+print(test.species_moles[pp.i['N2']])
 
 # def simple_equilibrate_hp(self, moisture, fuel, air=zero, steam=zero, 
 #                           P=ct.one_atm, duty=0):
