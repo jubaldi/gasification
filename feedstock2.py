@@ -12,12 +12,13 @@ edited using any spreadsheet editor to add new fuel compounds.
 
 # FIXME: 2013/05/25 Not possible to use a list of single value as parameter to 
 # functions.
-# FIXME: 2022/04/15 Ask professor if no data should return 0 or np.nan.
+# QSTN: 2022/04/15 Ask professor if no data should return 0 or np.nan.
 # TODO: 2022/04/27 Create functions: from fuelID and mass get Mix, from Mix get mass.
 # TODO: 2022/04/18 Biochemical composition should be in csv.
 # TODO: 2022/05/01 Find ash composition for petroleum coke.
 # TODO: 2022/05/01 Add a cantera mixture for steam + water.
 # TODO: 2022/05/01 Find heating values HHV and LHV from correlations.
+# QSTN: 2022/05/01 Should we assume that remaining mass is fixed carbon?
 
 # TODO LATER: 2022/05/01 Get heat of formation.
 
@@ -26,7 +27,7 @@ edited using any spreadsheet editor to add new fuel compounds.
 #==============================================================================
 import numpy as np
 import pandas as pd
-import pp
+import pp2 as pp
 
 # Create a dataframe from the csv
 with open('fuels.csv','r') as f1:
@@ -45,7 +46,7 @@ with open('ashes.csv', 'r') as f2:
     ashes = pd.read_csv(f2, sep=',', header=0, index_col=0)
     f2.close()
 
-def ash(fuelID):
+def ashFrac(fuelID):
     '''
     Get the ash fraction value for a given fuel. 
     The fuel must be available in the database (file: 'fuels.csv').
@@ -90,13 +91,13 @@ def ashComp(fuelID):
     comp : ndarray
         Composition of ash [kg/kg]
     '''
-    ashF = ash(fuelID)
+    ash = ashFrac(fuelID)
     rComp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
 
     compDF = 0
 
     # If ash fraction is 0, ash composition doesn't matter
-    if ashF == 0:
+    if ash == 0:
         comp = np.ones(len(rComp))/len(rComp)
 
     else:
@@ -140,10 +141,56 @@ def fuelComp(fuelID):
 
     Returns
     -------
-    fuelComp : ndarray
-        An array representing the mass composition of each species.
+    fuelComp : dict
+        A dictionary representing the mass fraction of each species.
     '''
 
+    # Grab ash, FC and VM from csv
+    ash = ashFrac(fuelID)
+    rFC = fuels.loc[fuelID]['Fixed carbon']/100
+    rVM = fuels.loc[fuelID]['Volatile matter']/100
+
+    if pd.isnull(rFC):
+        FC = 0
+    else:
+        FC = rFC
+
+    if pd.isnull(rVM) or rVM == 0:
+        VM = 1 - ash - FC
+    else:
+        VM = rVM
+
+    fuelComp = {}
+
+    # Grab CHONS content from csv
+    for index, species in enumerate(['C', 'H', 'O', 'N', 'S']):
+        if pd.isnull(fuels.loc[fuelID][species]):
+            fuelComp[species] = 0
+        else:
+            fuelComp[species] = (fuels.loc[fuelID][species]/100)*VM
+    
+    # Grab Cl content from csv
+    if pd.isnull(fuels.loc[fuelID]['Cl']):
+        fuelComp['CL'] = 0
+    else:
+        fuelComp['CL'] = (fuels.loc[fuelID]['Cl']/100)*VM
+    
+    # Fixed carbon value is stored as C(gr)
+    fuelComp['C(gr)'] = FC
+
+    ashCompos = ashComp(fuelID)
+
+    # Grab a list of species names from pp
+    speciesList = list(pp.i_inv.values())
+
+    for index, species in enumerate(['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 
+    'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']):
+        fuelComp[species] = ashCompos[index]*ash
+
+    # Any remaining mass is assumed to be fixed carbon (??) (ASK PROF)
+    fuelComp['C(gr)'] += 1 - sum(fuelComp.values())
+
+    return fuelComp
 
 def getFuelMix(fuelID, fuelMass):
     '''
@@ -161,4 +208,22 @@ def getFuelMix(fuelID, fuelMass):
     fuelMix : Cantera 'Mixture' object
         The fuel mixture object.
     '''
-    return 0
+    comp = fuelComp(fuelID)
+    massBySpecies = {key: value*fuelMass for key, value in comp.items()}
+
+    molesBySpecies = {key: value*1000/pp.Mw[key] for key, value in massBySpecies.items()}
+
+    fuelMix = pp.f
+
+    molesInOrder = np.zeros(len(fuelMix.species_names))
+    for index, species in enumerate(fuelMix.species_names):
+        if species in molesBySpecies.keys():
+            molesInOrder[index] = molesBySpecies[species]
+        else:
+            molesInOrder[index] = 0
+
+    fuelMix.species_moles = molesInOrder
+
+    return fuelMix
+
+print(getFuelMix('Almond', 100).phase_moles())
