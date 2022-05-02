@@ -227,3 +227,23 @@ def getFuelMix(fuelID, fuelMass):
     return fuelMix
 
 print(getFuelMix('Almond', 100).phase_moles())
+
+def getFuelMass(fuelMix):
+    '''
+    Calculate the mass of the given fuel mixture.
+
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        The fuel mixture object.
+
+    Returns
+    -------
+    fuelMass : float
+        The fuel mass [kg]
+    '''
+    fuelMass = 0
+    for index, species in enumerate(fuelMix.species_names):
+        fuelMass += fuelMix.species_moles[index]*pp.Mw[species]/1000
+
+    return fuelMass
