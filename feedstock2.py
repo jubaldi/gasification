@@ -25,7 +25,7 @@
 import numpy as np
 import pandas as pd
 import pp2 as pp
-import fuels as fu
+import fuel as fu
 
 def getFuelMix(fuelID, fuelMass):
     '''
@@ -111,104 +111,66 @@ def stoichO2(fuelMix):
 
     return stoichO2frac
 
-# def get_fuel_db(self):
-# #    fuel = get_feed(self, zero, one, zero) # 1 kg of fuel in d.b.
-#     fuel = get_feed(self) # 1 kg of fuel in d.b.
-#     nsp = fuel.n_species
-#     sp = fuel.species_moles
-#     # initiate variables
-#     mol_of_C = 0
-#     mol_of_H = 0
-#     mol_of_O = 0
-#     mol_of_S = 0
-#     mol_of_Cl = 0
-#     mol_of_Si = 0
-#     mol_of_Ca = 0
-#     mol_of_Al = 0
-#     mol_of_Fe = 0
-#     mol_of_Na = 0
-#     mol_of_K = 0
-#     mol_of_Mg = 0
-#     mol_of_P = 0
-#     mol_of_Ti = 0
-#     mol_of_Cr = 0
-#     mol_of_Ar = 0
-#     mol = 0
-#     # count moles of C,H,O in fuel species
-#     # IMPORTANT: I have to count S, Cl and ash species for precise estimation 
-#     # of stoichiometric oxygen amount. This is important mainly for high ash
-#     # fuels
-#     for i in range(nsp):
-#         if sp[i] != 0:
-# #            if i != fuel.species_index('gas', 'H2O'):
-# #                if i != fuel.species_index('gas', 'CO2'):
-# #                    mol_of_C += sp[i] * fuel.n_atoms(i, 'C')
-# #                    mol_of_H += sp[i] * fuel.n_atoms(i, 'H')
-# #                    mol_of_O += sp[i] * fuel.n_atoms(i, 'O')
-#             mol_of_C += sp[i] * fuel.n_atoms(i, 'C')
-#             mol_of_H += sp[i] * fuel.n_atoms(i, 'H')
-#             mol_of_O += sp[i] * fuel.n_atoms(i, 'O')
-#             mol_of_S += sp[i] * fuel.n_atoms(i, 'S')
-#             mol_of_Cl += sp[i] * fuel.n_atoms(i, 'Cl')
-#             mol_of_Si += sp[i] * fuel.n_atoms(i, 'Si')
-#             mol_of_Ca += sp[i] * fuel.n_atoms(i, 'Ca')
-#             mol_of_Al += sp[i] * fuel.n_atoms(i, 'Al')
-#             mol_of_Fe += sp[i] * fuel.n_atoms(i, 'Fe')
-#             mol_of_Na += sp[i] * fuel.n_atoms(i, 'Na')
-#             mol_of_K += sp[i] * fuel.n_atoms(i, 'K')
-#             mol_of_Mg += sp[i] * fuel.n_atoms(i, 'Mg')
-#             mol_of_P += sp[i] * fuel.n_atoms(i, 'P')
-#             mol_of_Ti += sp[i] * fuel.n_atoms(i, 'Ti')
-#             mol_of_Cr += sp[i] * fuel.n_atoms(i, 'Cr')
-#             mol_of_Ar += sp[i] * fuel.n_atoms(i, 'Ar')
-#             mol += sp[i]
-#     # normalise per mole of fuel
-#     mol_of_C /= mol
-#     mol_of_H /= mol
-#     mol_of_O /= mol
-#     mol_of_S /= mol
-#     mol_of_Cl /= mol
-#     mol_of_Si /= mol
-#     mol_of_Ca /= mol
-#     mol_of_Al /= mol
-#     mol_of_Fe /= mol
-#     mol_of_Na /= mol
-#     mol_of_K /= mol
-#     mol_of_Mg /= mol
-#     mol_of_P /= mol
-#     mol_of_Ti /= mol
-#     mol_of_Cr /= mol
-#     mol_of_Ar /= mol
-#     # stoichiometric moles of oxygen per mole of fuel
-#     stoic = mol_of_C + 0.25*mol_of_H - 0.5*mol_of_O + mol_of_S \
-#             - 0.5*mol_of_Cl + mol_of_Si + 0.5*mol_of_Ca + 3/2*mol_of_Al \
-#             + 3/2*mol_of_Fe + 0.25*mol_of_Na + 0.25*mol_of_K + 0.5*mol_of_Mg \
-#             + 2.5*mol_of_P + mol_of_Ti + 3/2*mol_of_Cr
-#     if stoic < 0:   # FIXME: Figure out the issue of a negative stoic
-#                     # oxygen. This happens when there is a fuel with high
-#                     # oxygen content, that is, 
-#                     # 0.5*mol_of_O > mol_of_C + 0.25*mol_of_H
-#         stoic += 0.5*mol_of_O
-#     return fuel, stoic
+def airtoER(fuelMix, air, O2=0.0):
+    '''
+    Calculates the equivalence ratio (ER) of the fuel mixture for the
+    given air / pure O2 mass.
 
-# def mass_of_air(self, fuel, ER=1.0):
-#     fuel_db, stoic = get_fuel_db(self)
-#     mol_of_fuel = fuel * np.sum(self/pp.Mw_f[:-1])
-#     # mole amount of gasifying agent
-#     mol_of_air = ER * stoic * mol_of_fuel/0.21
-#     # mass amount of gasifying agent
-#     return mol_of_air * pp.Mw_air
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        Fuel mixture object.
+    air : float
+        Air mass [kg]
+    O2 : float
+        Pure O2 mass [kg]
 
-# def equivalence_ratio(self, fuel, air, o2=0):
-#     fuel_db, stoic = get_fuel_db(self)
-#     mol_of_fuel = fuel * np.sum(self/pp.Mw_f[:-1])
-#     if air!=0 and o2==0:
-#         mol_of_O2 = 0.21 * (air/pp.Mw_air)
-#     elif air==0 and o2!=0:
-#         mol_of_O2 = o2/pp.Mw[pp.i_O2]
-#     else:
-#         mol_of_O2 = 0.21 * (air/pp.Mw_air) + o2/pp.Mw[pp.i_O2]
-#     return mol_of_O2/(stoic * mol_of_fuel)
+    Returns
+    -------
+    ER : float
+        Equivalence ratio [dimensionless]
+    '''
+    totalMoles = sum(fuelMix.species_moles)
+    stoich = stoichO2(fuelMix)
+    stoichO2Moles = stoich * totalMoles
+
+    airMoles = air*1000 / pp.Mw_air
+    pureO2Moles = O2*1000 / pp.Mw['O2']
+
+    airO2Moles = 0.21 * airMoles
+
+    ER = (airO2Moles + pureO2Moles) / stoichO2Moles
+
+    return ER
+
+def ERtoair(fuelMix, ER=1.0):
+    '''
+    Calculates the air mass required to combust the fuel mixture for the
+    given equivalence ratio.
+    
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        Fuel mixture object.
+    ER : float
+        Equivalence ratio [dimensionless]
+    
+    Returns
+    -------
+    air : float
+        Air mass [kg]
+    '''
+    totalMoles = sum(fuelMix.species_moles)
+    stoich = stoichO2(fuelMix)
+    stoichO2Moles = stoich * totalMoles
+
+    realO2Moles = ER * stoichO2Moles
+
+    airMoles = realO2Moles / 0.21
+
+    air = airMoles * pp.Mw_air / 1000
+
+    return air
 
 # def steam_to_carbon_ratio(self, fuel, steam):
 #     mol = chon_moles(self, 0, fuel, 0, 0, 0)
@@ -221,24 +183,6 @@ def stoichO2(fuelMix):
 #     mol_of_C = mol[0]
 #     mol_of_steam = SR * mol_of_C
 #     return mol_of_steam * pp.Mw[pp.i_H2O]
-
-# def chon_moles(self, moist, fuel, air, o2, stm):
-#     f = get_feed(self, moist, fuel, air, o2, stm)
-#     nsp = f.n_species
-#     sp = f.species_moles
-#     # initiate variables
-#     mol_of_C = 0
-#     mol_of_H = 0
-#     mol_of_O = 0
-#     mol_of_N = 0
-#     # count moles of C,H,O in fuel species
-#     for i in range(nsp):
-#         if sp[i] != 0:
-#             mol_of_C += sp[i] * f.n_atoms(i, 'C')
-#             mol_of_H += sp[i] * f.n_atoms(i, 'H')
-#             mol_of_O += sp[i] * f.n_atoms(i, 'O')
-#             mol_of_N += sp[i] * f.n_atoms(i, 'N')
-#     return mol_of_C, mol_of_H, mol_of_O, mol_of_N
     
 # def ohc_ratio(self, moist, fuel, air, o2, stm):
 #     C, H, O, N = chon_moles(self, moist, fuel, air, o2, stm)

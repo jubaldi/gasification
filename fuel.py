@@ -98,8 +98,6 @@ def ashComp(fuelID):
     ash = ashFrac(fuelID)
     rComp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
 
-    compDF = 0
-
     # If ash fraction is 0, ash composition doesn't matter
     if ash == 0:
         comp = np.ones(len(rComp))/len(rComp)
@@ -120,7 +118,8 @@ def ashComp(fuelID):
                 fCat = rCat
             else:
                 fCat = 'Other'
-            compDF = ashes.loc[ashes['Type']==fType][ashes['Category']==fCat]
+            compDF1 = ashes.loc[ashes['Type']==fType]
+            compDF = compDF1.loc[compDF1['Category']==fCat]
             comp = compDF.loc[:,'SiO2':'Cr2O3'].values[0]/100
 
     # If ash composition is given by csv, use it

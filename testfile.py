@@ -17,7 +17,7 @@ import gasifier as g
 
 fuel = ['Bagasse1','Bagasse0']
 frac = fs1.fraction(fuel)
-a = g.get_fuel_db(frac[0])
+a = g.get_fuel_db(frac['mass'][0])
 mix = fs2.getFuelMix(fuel[0], 1)
 b = fs2.stoichO2(mix)
 
