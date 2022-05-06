@@ -1,0 +1,81 @@
+MUDANÇAS
+Nícolas Lima Anése
+Período: 11/04/2022 a 09/05/2022
+
+pp.py
+Passado para pp2.py
+- Funções que usavam pp.f agora usam pp2.mix() para instanciar novo objeto.
+- Mw, i e Hfo agora armazenados em dict.
+- Mw = {espécie : peso molecular}
+- i = {espécie : índice}
+- Hfo = {espécie : Hfo}
+- i_inv = {índice : nome_da_espécie}
+IDEIAS:
+- Buscar água líquida como ct.Solution para usar como umidade
+- Buscar vapor d'água como ct.Solution para usar como vapor
+- Usar ct.Solution de air como ar e O2 puro
+
+feedstock.py
+Dividido em fuel.py e feedstock2.py
+- FUNÇÕES ELIMINADAS:
+    - Leitura dos headers do csv.
+    - moisture, fixed_carbon, volatile, HHV, LHV, CHONSCl, molecular_weight
+ALTERAÇÕES
+- ash -> ash, fuel.py, agora calcula apenas ash
+- nova função ashComp em fuel.py, calcula ashComp
+- fraction -> getFuelMix, feedstock2.py, retorna ct.Mixture
+NOVAS FUNÇÕES em feedstock2.py:
+- getFuelMass: retorna a massa [kg] da mistura
+A FAZER:
+- heating_values
+- heat_of_formation
+- biochemical_composition
+
+
+gasifier.py
+Dividido em gasifier2.py, energy.py, outputs.py, feedstock2.py
+- FUNÇÕES ELIMINADAS:
+    - get_water
+    - equilibrate_tp (subst. por 2 linhas de código)
+    - chon_moles (1 linha de código com ct)
+    - get_species
+    - get_fraction
+    - mass_to_mole_fraction
+    - mole_to_mass_fraction
+    - mixture
+    - avg_error
+ALTERAÇÕES
+- get_feed -> getFeed, retorna ct.Mixture
+- get_fuel_db -> stoichO2, feedstock2.py
+- mass_of_air -> ERtoair, feedstock2.py
+- equivalence_ratio -> airtoER, feedstock2.py
+- steam_to_carbon_ratio -> steamtoSR, feedstock2.py]
+- mass_of_steam -> SRtosteam, feedstock2.py
+- ohc_ratio -> OHCratio, feedstock2.py
+- blending -> blend, feedstock2.py, retorna ct.Mixture
+- coprocessing1 -> isotCogasification, gasifier2.py, retorna ct.Mixture.
+NOVAS FUNÇÕES em gasifier2.py
+- isotGasification: cálculo de gaseificação para 1 combustível, retorna ct.Mixture.
+A FAZER:
+- Consertar getFeed para usar O2 puro, umidade em base úmida
+- get_enthalpy -> energy.py
+- simple_equilibrate_hp, equilibrate_hp -> energy.py
+- enthalpy_of_formation -> energy.py
+- gas_yield -> outputs.py
+- h2co_ratio -> outputs.py
+- carbon_conversion -> outputs.py
+- syngas_hhv -> outputs.py
+- syngas_lhv -> outputs.py
+- gas_hhv -> outputs.py
+- cold_gas_efficiency -> outputs.py
+- coprocessing -> multiIsotCogasification (?), gasifier2.py, para processar várias condições, combinatorialmente ou 1 a 1
+
+reactors.py
+Não alterado.
+
+ashes.csv
+- Novo csv, contém informações de Vassilev2013 para ashComp
+
+O QUE FALTOU
+Ainda é necessário ajustar as funções em outputs.py para poder processar os outputs e deixá-los legíveis.
+No momento, as funções de gaseificação estão retornando ct.Mixture, é preciso extrair informações delas.
