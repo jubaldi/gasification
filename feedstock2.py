@@ -217,9 +217,6 @@ def SRtosteam(mix, SR):
     steam = steamMoles * pp.Mw['H2O'] / 1000
     return steam
 
-a = getFuelMix('Almond', 1)
-print(steamtoSR(a, SRtosteam(a, 5.6)))
-
 def OHCratio(mix):
     '''
     Calculates H/C and O/C ratios for given mixture.

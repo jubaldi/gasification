@@ -15,8 +15,9 @@ TODO: 2022/05/02 Create function to convert between air, o2, ER and between stea
 #==============================================================================
 import pp as ppold
 import pp2 as pp
-import feedstock
+import feedstock as fsold
 import feedstock2 as fs
+import fuel as fu
 import cantera as ct
 import numpy as np
 import scipy.optimize as opt
@@ -35,11 +36,63 @@ one = np.ones(1)
 # special functions
 #==============================================================================
 
-def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm, 
-                    oxi = 0.5, steam=0.0, oType='airMass', sType='mass',
-                    species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']
-                    ):
+def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
+    '''
+    This function creates a mixture of phases to denote the fuel.
+    The fuel is composed as a mixture of char, gas, ash, and moisture phases.
+
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        Object containing the mole amount of each species in the dry fuel.
+    moist : float
+        Mass fraction of moisture fuel [kg/kg] (default value is zero)
+    air : float
+        Mass amount of air [kg] (default value is zero)
+    steam : float
+        Mass amount of steam [kg] (default value is zero)
+
+    Returns
+    -------
+    feed : Cantera 'Mixture' object
+        Object representing the mixture of phases in the feedstock.
+    '''
+
+    feed = pp.f
+
+    mw = np.fromiter(pp.Mw.values(), dtype=float) # molecular weights
+    fuelMoles = fuelMix.species_moles # moles for each species
+    fuelMass = fuelMoles * mw / 1000 # fuel mass in kg for each species
+    totalFuelMass = np.sum(fuelMass) # total fuel mass in kg
+
+    moistMass = moist * totalFuelMass # mass of d.b. moisture in kg
+    moistMoles = moistMass / pp.Mw['H2O'] # moles of d.b. moisture
     
+    steamMoles = steam / pp.Mw['H2O'] # moles of steam
+
+    H2OMoles = moistMoles + steamMoles # total moles of water
+
+    airO2Moles = 0.23211606*air/pp.Mw['O2']
+    airN2Moles = 0.75507754*air/pp.Mw['N2']
+    airArMoles = 0.01280640*air/pp.Mw['Ar']
+
+    #pureO2Moles = O2 / pp.Mw['O2'] # moles of pure O2
+
+    O2Moles = airO2Moles #+ pureO2Moles total moles of O2
+
+    feedMoles = np.zeros(len(feed.species_names))
+    feedMoles += fuelMoles
+    feedMoles[pp.i['H2O']] += H2OMoles
+    feedMoles[pp.i['O2']] += O2Moles
+    feedMoles[pp.i['N2']] += airN2Moles
+    feedMoles[pp.i['Ar']] += airArMoles
+    feed.species_moles = feedMoles
+
+    return feed
+
+def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm, 
+                    oxi = 0.5, steam=0.0, oType='ER', sType='steam',
+                    species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
     Isothermal gasification calculation for a single fuel in a given condition.
 
@@ -54,15 +107,15 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
     T : float
         Temperature [K]
     P : float
-        Pressure [Pa]
+        Pressure [atm]
     oxi : float
         Oxidizer value [kg air] [kg O2] [kg/kg]
     steam : float
-        Steam value [kg] [mol] [kg/kg]
+        Steam value [kg] [kg/kg]
     oType : str
-        Oxidizer type
+        Oxidizer type, 'air', 'O2' or 'ER'
     sType : str
-        Steam type
+        Steam type, 'steam' or 'SR'
     species : list
         List of species to include in the calculation.
 
@@ -72,547 +125,130 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
     outlet : Cantera 'Mixture' object
         Object representing the mixture at equilibrium.
     '''
-    
+    # Create fuel mix
+    fuelMix = fs.getFuelMix(fuelID, fuelMass)
+
     # Verify type of oxidizer given
-    if oType == 'airMass':
+    if oType == 'air':
         air = oxi
         O2 = 0
-        ER = 0
-    elif oType == 'airMoles':
-        air = 0
-        O2 = 0
-        ER = 0
-    elif oType == 'O2Mass':
+        ER = fs.airtoER(fuelMix, oxi)
+    elif oType == 'O2':
         air = 0
         O2 = oxi
-        ER = 0
-    elif oType == 'O2Moles':
-        air = 0
-        O2 = 0
-        ER = 0
+        ER = fs.airtoER(fuelMix, 0, oxi) # TODO: Can't use pure O2
     elif oType == 'ER':
-        air = 0
+        air = fs.ERtoair(fuelMix, oxi)
         O2 = 0
         ER = oxi
     else:
         raise ValueError('Invalid oxidizer type')
     
     # Verify type of steam given
-    if sType == 'mass':
+    if sType == 'steam':
         stm = steam
-    elif sType == 'moles':
-        stm = 0
-    elif sType == 'ratio':
-        stm = 0
+        SR = fs.SRtosteam(fuelMix, steam)
+    elif sType == 'SR':
+        stm = fs.steamtoSR(fuelMix, steam)
+        SR = steam
     else:
         raise ValueError('Invalid steam type')
 
-    # Create fuel mix
-    fuelMix = fs.getFuelMix(fuelID, fuelMass)
-
     # Create feed
-    feed = fs.getFeed(fuelMix, moisture, air, steam)
+    feed = getFeed(fuelMix, moisture, air, steam)
 
     # Calculate equilibrium
-    feed.T, feed.P = T, P
-    outlet = feed.equilibrate('TP')
+    feed.T = T
+    feed.P = P
+    feed.equilibrate('TP')
 
-    return outlet
+    return feed
 
-test = isotGasification('Almond', 100, 0.01, 500, 2, 0, 0, 0.5, 0, 0)
+def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15, 
+                    P=ct.one_atm, oxi = 0.5, steam=0.0, oType='ER', sType='steam',
+                    species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+    '''
+    Isothermal gasification calculation for a blend of 2 fuels in a given condition.
 
-print(test.species_moles[pp.i['N2']])
+    Parameters
+    ----------
+    fuel1 : str
+        ID of fuel #1 as given by the database (fuels.csv)
+    fuel2 : str
+        ID of fuel #2 as given by the database (fuels.csv)
+    fuel1Mass : float
+        Mass of fuel #1 [kg]
+    blend : float
+        Fuel #2 to total fuel mass ratio [kg]
+    moisture : float
+        The moisture mass fraction, dry base [kg/kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [atm]
+    oxi : float
+        Oxidizer value [kg air] [kg O2] [kg/kg]
+    steam : float
+        Steam value [kg] [kg/kg]
+    oType : str
+        Oxidizer type, 'air', 'O2' or 'ER'
+    sType : str
+        Steam type, 'steam' or 'SR'
+    species : list
+        List of species to include in the calculation.
 
 
-# def get_fuel_db(self):
-# #    fuel = get_feed(self, zero, one, zero) # 1 kg of fuel in d.b.
-#     fuel = get_feed(self) # 1 kg of fuel in d.b.
-#     nsp = fuel.n_species
-#     sp = fuel.species_moles
-#     # initiate variables
-#     mol_of_C = 0
-#     mol_of_H = 0
-#     mol_of_O = 0
-#     mol_of_S = 0
-#     mol_of_Cl = 0
-#     mol_of_Si = 0
-#     mol_of_Ca = 0
-#     mol_of_Al = 0
-#     mol_of_Fe = 0
-#     mol_of_Na = 0
-#     mol_of_K = 0
-#     mol_of_Mg = 0
-#     mol_of_P = 0
-#     mol_of_Ti = 0
-#     mol_of_Cr = 0
-#     mol_of_Ar = 0
-#     mol = 0
-#     # count moles of C,H,O in fuel species
-#     # IMPORTANT: I have to count S, Cl and ash species for precise estimation 
-#     # of stoichiometric oxygen amount. This is important mainly for high ash
-#     # fuels
-#     for i in range(nsp):
-#         if sp[i] != 0:
-# #            if i != fuel.species_index('gas', 'H2O'):
-# #                if i != fuel.species_index('gas', 'CO2'):
-# #                    mol_of_C += sp[i] * fuel.n_atoms(i, 'C')
-# #                    mol_of_H += sp[i] * fuel.n_atoms(i, 'H')
-# #                    mol_of_O += sp[i] * fuel.n_atoms(i, 'O')
-#             mol_of_C += sp[i] * fuel.n_atoms(i, 'C')
-#             mol_of_H += sp[i] * fuel.n_atoms(i, 'H')
-#             mol_of_O += sp[i] * fuel.n_atoms(i, 'O')
-#             mol_of_S += sp[i] * fuel.n_atoms(i, 'S')
-#             mol_of_Cl += sp[i] * fuel.n_atoms(i, 'Cl')
-#             mol_of_Si += sp[i] * fuel.n_atoms(i, 'Si')
-#             mol_of_Ca += sp[i] * fuel.n_atoms(i, 'Ca')
-#             mol_of_Al += sp[i] * fuel.n_atoms(i, 'Al')
-#             mol_of_Fe += sp[i] * fuel.n_atoms(i, 'Fe')
-#             mol_of_Na += sp[i] * fuel.n_atoms(i, 'Na')
-#             mol_of_K += sp[i] * fuel.n_atoms(i, 'K')
-#             mol_of_Mg += sp[i] * fuel.n_atoms(i, 'Mg')
-#             mol_of_P += sp[i] * fuel.n_atoms(i, 'P')
-#             mol_of_Ti += sp[i] * fuel.n_atoms(i, 'Ti')
-#             mol_of_Cr += sp[i] * fuel.n_atoms(i, 'Cr')
-#             mol_of_Ar += sp[i] * fuel.n_atoms(i, 'Ar')
-#             mol += sp[i]
-#     # normalise per mole of fuel
-#     mol_of_C /= mol
-#     mol_of_H /= mol
-#     mol_of_O /= mol
-#     mol_of_S /= mol
-#     mol_of_Cl /= mol
-#     mol_of_Si /= mol
-#     mol_of_Ca /= mol
-#     mol_of_Al /= mol
-#     mol_of_Fe /= mol
-#     mol_of_Na /= mol
-#     mol_of_K /= mol
-#     mol_of_Mg /= mol
-#     mol_of_P /= mol
-#     mol_of_Ti /= mol
-#     mol_of_Cr /= mol
-#     mol_of_Ar /= mol
-#     # stoichiometric moles of oxygen per mole of fuel
-#     stoic = mol_of_C + 0.25*mol_of_H - 0.5*mol_of_O + mol_of_S \
-#             - 0.5*mol_of_Cl + mol_of_Si + 0.5*mol_of_Ca + 3/2*mol_of_Al \
-#             + 3/2*mol_of_Fe + 0.25*mol_of_Na + 0.25*mol_of_K + 0.5*mol_of_Mg \
-#             + 2.5*mol_of_P + mol_of_Ti + 3/2*mol_of_Cr
-#     if stoic < 0:   # FIXME: Figure out the issue of a negative stoic
-#                     # oxygen. This happens when there is a fuel with high
-#                     # oxygen content, that is, 
-#                     # 0.5*mol_of_O > mol_of_C + 0.25*mol_of_H
-#         stoic += 0.5*mol_of_O
-#     return fuel, stoic
+    Returns
+    -------
+    outlet : Cantera 'Mixture' object
+        Object representing the mixture at equilibrium.
+    '''
+    # Create each fuel mixture
+    fuel1Mix = fs.getFuelMix(fuel1, fuel1Mass)
+    fuel2Mass = fuel1Mass * blend # WRONG
+    fuel2Mix = fs.getFuelMix(fuel2, fuel2Mass)
 
-# def enthalpy_of_formation(self, hhv):
-#     '''
-#     Estimate the standard enthalpy of formation of fuel [J/kg] from higher 
-#     heating value and species composition.
+    # Create fuel blend
+    fuelBlend = fs.blend(fuel1Mix, fuel2Mix)
+
+    # Verify type of oxidizer given
+    if oType == 'air':
+        air = oxi
+        O2 = 0
+        ER = fs.airtoER(fuelBlend, oxi)
+    elif oType == 'O2':
+        air = 0
+        O2 = oxi
+        ER = fs.airtoER(fuelBlend, 0, oxi) # TODO: Can't use pure O2
+    elif oType == 'ER':
+        air = fs.ERtoair(fuelBlend, oxi)
+        O2 = 0
+        ER = oxi
+    else:
+        raise ValueError('Invalid oxidizer type')
     
-#     Parameters
-#     ----------
-#     self : ndarray
+        # Verify type of steam given
+    if sType == 'steam':
+        stm = steam
+        SR = fs.SRtosteam(fuelBlend, steam)
+    elif sType == 'SR':
+        stm = fs.steamtoSR(fuelBlend, steam)
+        SR = steam
+    else:
+        raise ValueError('Invalid steam type')
 
-#     Returns
-#     -------
-#     hfo : ndarray
-#         standard enthalpy of formation of fuel [J/kg]
-#     '''
-#     f, stoic = get_fuel_db(self)
-#     mol = f.species_moles # kmol
-#     Mw = sum(mol*pp.Mw)
-#     # standard enthalpy of formation [J/kg]
-#     return (mol[pp.i_C]*pp.Hfo_CO2 + mol[pp.i_H]/2*pp.Hfo_H2Ol \
-#             + mol[pp.i_N]*pp.Hfo_N2 + mol[pp.i_S]*pp.Hfo_SO2 \
-#             + mol[pp.i_Cl]*pp.Hfo_ClO + mol[pp.i_SiO2]*pp.Hfo_SiO2 \
-#             + mol[pp.i_CaO]*pp.Hfo_CaO + mol[pp.i_Al2O3]*pp.Hfo_Al2O3 \
-#             + mol[pp.i_Fe2O3]*pp.Hfo_Fe2O3 + mol[pp.i_Na2O]*pp.Hfo_Na2O \
-#             + mol[pp.i_K2O]*pp.Hfo_K2O + mol[pp.i_MgO]*pp.Hfo_MgO \
-#             + mol[pp.i_P2O5]*pp.Hfo_P2O5 + mol[pp.i_TiO2]*pp.Hfo_TiO2 \
-#             + mol[pp.i_SO3]*pp.Hfo_SO3 + mol[pp.i_Cr2O3]*pp.Hfo_Cr2O3 \
-#             - stoic*pp.Hfo_O2 + hhv*1e6*Mw)/mol[pp.i_C]
+    # Create feed
+    feed = getFeed(fuelBlend, moisture, air, steam)
+
+    # Calculate equilibrium
+    feed.T = T
+    feed.P = P
+    feed.equilibrate('TP')
+
+    return feed
+
+
             
-# def mass_of_air(self, fuel, ER=1.0):
-#     fuel_db, stoic = get_fuel_db(self)
-#     mol_of_fuel = fuel * np.sum(self/pp.Mw_f[:-1])
-#     # mole amount of gasifying agent
-#     mol_of_air = ER * stoic * mol_of_fuel/0.21
-#     # mass amount of gasifying agent
-#     return mol_of_air * pp.Mw_air
-
-# def equivalence_ratio(self, fuel, air, o2=0):
-#     fuel_db, stoic = get_fuel_db(self)
-#     mol_of_fuel = fuel * np.sum(self/pp.Mw_f[:-1])
-#     if air!=0 and o2==0:
-#         mol_of_O2 = 0.21 * (air/pp.Mw_air)
-#     elif air==0 and o2!=0:
-#         mol_of_O2 = o2/pp.Mw[pp.i_O2]
-#     else:
-#         mol_of_O2 = 0.21 * (air/pp.Mw_air) + o2/pp.Mw[pp.i_O2]
-#     return mol_of_O2/(stoic * mol_of_fuel)
-
-# def steam_to_carbon_ratio(self, fuel, steam):
-#     mol = chon_moles(self, 0, fuel, 0, 0, 0)
-#     mol_of_C = mol[0]
-#     mol_of_steam = steam / pp.Mw[pp.i_H2O]
-#     return mol_of_steam / mol_of_C
-    
-# def mass_of_steam(self, fuel, SR=0):
-#     mol = chon_moles(self, 0, fuel, 0, 0, 0)
-#     mol_of_C = mol[0]
-#     mol_of_steam = SR * mol_of_C
-#     return mol_of_steam * pp.Mw[pp.i_H2O]
-
-# def chon_moles(self, moist, fuel, air, o2, stm):
-#     f = get_feed(self, moist, fuel, air, o2, stm)
-#     nsp = f.n_species
-#     sp = f.species_moles
-#     # initiate variables
-#     mol_of_C = 0
-#     mol_of_H = 0
-#     mol_of_O = 0
-#     mol_of_N = 0
-#     # count moles of C,H,O in fuel species
-#     for i in range(nsp):
-#         if sp[i] != 0:
-#             mol_of_C += sp[i] * f.n_atoms(i, 'C')
-#             mol_of_H += sp[i] * f.n_atoms(i, 'H')
-#             mol_of_O += sp[i] * f.n_atoms(i, 'O')
-#             mol_of_N += sp[i] * f.n_atoms(i, 'N')
-#     return mol_of_C, mol_of_H, mol_of_O, mol_of_N
-    
-# def ohc_ratio(self, moist, fuel, air, o2, stm):
-#     C, H, O, N = chon_moles(self, moist, fuel, air, o2, stm)
-#     return H/C, O/C
-
-# def gas_yield(self, basis='vol', db='y'):
-#     """
-#     Gas yield of reactor outlet.
-
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     basis : string
-#         Mole amount ('kmol')
-#         Mass amount ('kg')
-#         Normal volume amount ('Nm3')
-#         Normal condition at 273.15K and 1 atm.
-#     db : string
-#         Dry basis ('y', default) or wet basis ('n')
-    
-
-#     Returns
-#     -------
-#     yield : float
-#         Syngas yield [kmol] [kg] [Nm3]
-#     """
-#     # mole of gas species
-#     mol = self[pp.s.n_species:]
-#     # wet basis
-#     if (db == 'n'):        
-#         if (basis == 'mole'):
-#             return np.sum(mol) - self[pp.i_N2]
-#         if (basis == 'mass'):
-#             return np.sum(mol*pp.Mw_g) - self[pp.i_N2]*pp.Mw[pp.i_N2]
-#         if (basis == 'vol'):
-#             return ((np.sum(mol) - self[pp.i_N2])*R*Tn)/Pn
-#     # dry basis
-#     if (db == 'y'):
-#         if (basis == 'mole'):
-#             return np.sum(mol) - self[pp.i_H2O] - self[pp.i_N2]
-#         if (basis == 'mass'):
-#             return np.sum(mol*pp.Mw_g) - self[pp.i_H2O]*pp.Mw[pp.i_H2O] \
-#                 - self[pp.i_N2]*pp.Mw[pp.i_N2]
-#         if (basis == 'vol'):
-#             return ((np.sum(mol) - self[pp.i_H2O] - self[pp.i_N2])*R*Tn)/Pn
-
-# def get_species(self, species=[], eps=1e-6):
-#     '''
-#     Get a list of species which mole fractions in 'self' are higher than 'eps'.
-#     this function is useful to find a minimum number of species to handle out a
-#     chemical equilibrium problem.
-#     '''
-#     i = 1
-#     while i < pp.nsp:
-#         if self[i] > eps:
-#             species_name = pp.f.species_name(i)
-#             try:
-#                 species.index(species_name)
-#             except:
-#                 # exclude liquid species
-#                 if 'L)' not in species_name:
-#                     species.append(species_name)
-#         i += 1
-#     return species
-    
-# def get_fraction(self, species, normalized='n', db='n', eps=None):
-#     '''
-#     db : string
-#         Dry basis ('y') or wet basis ('n', default)
-#     '''
-#     ## TODO: Make available for mass fraction calculation
-#     idx = len(species)
-#     mole = np.zeros(idx, 'd')
-#     i = 0
-#     while i < idx:
-#         # get values
-#         try:
-#             mole[i] = self[pp.f.species_index('solid', species[i])]#/mole_solid
-#         except:
-#             mole[i] = self[pp.f.species_index('gas', species[i])]#/mole_gas
-#         if eps != None:
-#             # make small values as zero
-#             if mole[i] < eps:
-#                 mole[i] = 0
-#         i += 1
-#     # convert mole amount to mole fraction
-#     mole /= sum(self)
-#     if db == 'y':
-#         mole *= (1 - self[pp.i_H2O])
-#     if normalized == 'y':
-#         # normalize values
-#         mole /= np.sum(mole)
-#     return mole
-    
-# def h2co_ratio(self):
-#     h2 = self[pp.f.species_index('gas', 'H2')]
-#     co = self[pp.f.species_index('gas', 'CO')]
-#     return h2/co
-    
-# def carbon_conversion(products, reagents):
-#     return (reagents[pp.i_C] - products[pp.i_C]) / reagents[pp.i_C]
-
-# def syngas_hhv(self, fuel_mass=1.0, basis='vol'):
-#     """
-#     Higher heating value of gas-phase products (syngas).
-
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     fuel : float
-#         Mass of fuel, w.b.
-#     basis : string
-#         HHV in mass fraction = 'w', mole fraction = 'm', 
-#         volume fraction = 'v' (default)
-
-#     Returns
-#     -------
-#     HHV : float
-#         Higher heating value in the respective basis (mass, mole, or volume), 
-#         d.b. [MJ/kg] [MJ/kmol] [MJ/Nm3]
-#     """
-#     ns = pp.nsp
-#     # preallocate variables
-#     sp = []
-#     hhv_i = np.zeros(ns) # will be nonzero to 'heating' species
-#     # find key species
-#     for i in range(ns):
-#         if (i == pp.f.species_index('gas','H2') or \
-#             i == pp.f.species_index('gas','CH4') or \
-#             i == pp.f.species_index('gas','CO') #or \
-# #            i == pp.f.species_index('gas','C2H6')
-#             ):
-#             sp = np.append(sp, pp.f.species_name(i))
-#             hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') \
-#             + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] \
-#             - (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] \
-#             # FIXME: liquid or gas water?
-#             - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O] # [J/kmol]
-#     # higher heating value
-#     hhv = np.sum(self*hhv_i)*1e-6 # [MJ]
-#     if (basis == 'syngas mole'):
-#         return hhv/gas_yield(self, db='y', basis='mole') # d.b. [MJ/kmol]
-#     if (basis == 'syngas mass'):
-#         return hhv/gas_yield(self, db='y', basis='mass') # d.b. [MJ/kg]
-#     if (basis == 'fuel mass'):
-#         return hhv/fuel_mass # [MJ/kg]
-#     if (basis == 'syngas vol'):
-#         return hhv/gas_yield(self, db='y', basis='vol') # d.b. [MJ/Nm3]
-
-# def syngas_lhv(self, fuel_mass=1.0):
-#     """
-#     Lower heating value (LHV) of gas-phase products (syngas).
-
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     fuel : float
-#         Mass of fuel, w.b.
-#     basis : string
-#         LHV in mass fraction = 'w', mole fraction = 'm', 
-#         volume fraction = 'v' (default)
-
-#     Returns
-#     -------
-#     lhv : float
-#         Lower heating value [MJ/kg]
-#     """
-#     lhv_CO = 10.160*pp.Mw[pp.i_CO] # MJ/kmol
-#     lhv_CH4 = 49.855*pp.Mw[pp.i_CH4] # MJ/kmol
-# #    lhv_C2H6 = 47.208*pp.Mw[pp.i_C2H6] # MJ/kmol
-#     lhv_H2 = 120.092*pp.Mw[pp.i_H2] # MJ/kmol
-#     return (lhv_CO*self[pp.i_CO] + lhv_CH4*self[pp.i_CH4] \
-# #            + lhv_C2H6*self[pp.i_C2H6] 
-#             + lhv_H2*self[pp.i_H2])*(1 \
-#             - self[pp.i_H2O]/gas_yield(self, db='n', basis='mole'))
-        
-# def gas_hhv(self, basis='vol'):
-#     """
-#     Higher heating value of gas-phase products (fuel gas).
-
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     basis : string
-#         HHV in mass fraction = 'w', mole fraction = 'm', 
-#         volume fraction = 'v' (default)
-
-#     Returns
-#     -------
-#     HHV : float
-#         Higher heating value in the respective basis (mass, mole, or volume), 
-#         d.b. [MJ/kg] [MJ/kmol] [MJ/Nm3]
-#     """
-#     ns = pp.nsp
-#     # preallocate variables
-#     sp = []
-#     hhv_i = np.zeros(ns) # will be nonzero to 'heating' species
-#     # find 'heating' species
-#     for i in range(ns):
-#         if (i == pp.f.species_index('gas','H2') or \
-#             i == pp.f.species_index('gas','CO')):
-#             # Combustion of hydrogen
-#             # H2 + 0.5O2 --> H2O + <<HHV>>
-#             # Combustion of carbon monoxide
-#             # CO + 0.5O2 --> CO2 + <<HHV>>
-#             sp = np.append(sp, pp.f.species_name(i))
-#             hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') \
-#             + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] \
-#             - (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] \
-#             # FIXME: liquid or gas water?
-#             - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O] # [J/kmol]
-#         if (pp.f.n_atoms(i,'C') >= 1 and pp.f.n_atoms(i,'H') >= 1):
-#             if (pp.f.n_atoms(i,'N') == 0 and pp.f.n_atoms(i,'O') == 0 and \
-#                 pp.f.n_atoms(i,'S') == 0):
-#                 # Combustion of hydrocarbons
-#                 # CxHy + (x+0.25y)O2 --> xCO2 + 0.5yH2O + <<HHV>>
-#                 sp = np.append(sp, pp.f.species_name(i))
-#                 hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') \
-#                 + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] \
-#                 - (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] \
-#                 # FIXME: liquid or gas water?
-#                 - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O] # [J/kmol]
-#     ## N2 H2 CO CH4 CO2 C2H6
-#     # higher heating value
-#     hhv = np.sum(self*hhv_i)*1e-6 # [MJ]
-#     if (basis == 'mole'):
-#         return hhv/gas_yield(self, db='y', basis='mole') # d.b. [MJ/kmol]
-#     if (basis == 'mass'):
-#         return hhv/gas_yield(self, db='y', basis='mass') # d.b. [MJ/kg]
-#     if (basis == 'vol'):
-#         return hhv/gas_yield(self, db='y', basis='vol') # d.b. [MJ/Nm3]
-
-# def mass_to_mole_fraction(self, Mw1, Mw2):
-#     """
-#     Convert mass fraction to mole fraction for dual-fuel blends.
-    
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mass fraction of fuel #1 [kg/kg]
-#     Mw1 : float
-#         Molecular weight of fuel #1 [kg/kmol]
-#     Mw2 : float
-#         Molecular weight of fuel #2 [kg/kmol]
-    
-#     Returns
-#     -------
-#     mole_fraction : ndarray
-#         Mole fraction of fuel #1 [kmol/kmol]
-#     """
-#     idx = len(self)
-#     if (self.ndim == 1):
-#         mole_fraction = self/Mw1/(self/Mw1 + (1.0 - self)/Mw2)
-#     else:
-#         mole_fraction = np.zeros(idx,'d')
-#         for i in range(idx):
-#             mole_fraction[i] = self[i]/Mw1/(self[i]/Mw1 + (1 - self[i])/Mw2)
-#     return mole_fraction
-
-# def mole_to_mass_fraction(self, Mw1, Mw2):
-#     """
-#     Convert mole fraction to mass fraction for dual-fuel blends.
-    
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole fraction of fuel #1 [kmol/kmol]
-#     Mw1 : float
-#         Molecular weight of fuel #1 [kg/kmol]
-#     Mw2 : float
-#         Molecular weight of fuel #2 [kg/kmol]
-    
-#     Returns
-#     -------
-#     mass_fraction : ndarray
-#         Mass fraction of fuel #1 [kg/kg]
-#     """
-#     idx = len(self)
-#     if (self.ndim == 1):
-#         mass_fraction = self*Mw1/(Mw2 - self(Mw1 - Mw2))
-#     else:
-#         mass_fraction = np.zeros(idx,'d')
-#         for i in range(idx):
-#             mass_fraction[i] = self[i]*Mw1/(Mw2 - self[i]*(Mw1 - Mw2))
-#     return mass_fraction
-
-# def mixture(f, prop1, prop2):
-#     n1 = np.size(f)
-#     if (prop1.ndim <= 0):
-#         prop3 = np.zeros((n1))
-#         for i in range(n1):
-#             prop3[i] = f[i]*prop1 + (1.0 - f[i])*prop2
-#     else:
-#         n2 = len(prop1)
-#         prop3 = np.zeros((n1,n2))
-#         for i in range(n1):
-#             for j in range(n2):
-#                 prop3[i,j] = f[i]*prop1[j] + (1.0 - f[i])*prop2[j]
-#     return prop3
-
-# def blending(f, coal, biomass):
-#     """
-#     f : float
-#         %wt biomass in coal-biomass blend
-#     """
-#     return (1.0 - f)*coal + (f)*biomass
-
-# def avg_error(mes, sim):
-#     """
-#     Return average error
-#     sim : ndarray
-#         simulated values
-#     mes: ndarray
-#         mesuared values
-#     """
-#     return np.sum(np.abs(sim-mes)/mes)/len(mes)
-
-# def cold_gas_efficiency(self, fuel_lhv, moisture_fuel):
-#     """
-#     Return cold gas efficiency of gasification.
-#     fuel_lhv : ndarray
-#         Fuel LHV
-#     moisture_fuel : ndarray
-#         Fuel moisture
-#     """
-#     return (syngas_lhv(self, 1 + moisture_fuel)/fuel_lhv)    
-
-# #def gasification(fuelID, moisture, T, P=1.0, air=0, O2=0, ER=0.4, steam=0, SR=0,)
-
 # def coprocessing(self, fuel_id, blend, moisture, T, P=1.0,
 #                  air=0, O2=0, ER=0.4, steam=0, SR=0,
 #                  small=None, db='n', normalized='n', format_='%',

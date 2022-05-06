@@ -1,25 +1,31 @@
 import numpy as np
 import pandas as pd
 import feedstock as fs1
-import feedstock2 as fs2
-import pp
-import pp2
-import gasifier as g
+import feedstock2 as fs
+import pp as pp1
+import pp2 as pp
+import gasifier2 as g
+import fuel as fu
+import energy as en
+import outputs as op
 
-#print(0, pp.Hfo_air == pp2.Hfo_air)
-#print(1, pp.H_vap_mass == pp2.H_vap_mass)
-#print(2, pp.H_vap == pp2.H_vap)
-#print(3, pp.Mw_f == pp2.Mw_f)
-#print(4, pp.Mw_air == pp2.Mw_air)
-#print(5, pp.i_SiO2 == pp2.i['SiO2(hqz)'])
-#print(6, pp.Hfo_Cr2O3 == pp2.Hfo['Cr2O3(s)'])
-#print(7, pp.Hfo_H2Ol == pp2.Hfo['H2O(l)'])
+fuel1 = 'SMC'
+fuel2 = 'RS'
+T = 940 + 273.15
+P = 1
+ER = 0.32
+SR = 0.49
+m1 = 2.4
+m2 = 0.6
+bld = m2/m1
+fuel1mix = fs.getFuelMix(fuel1, m1)
+fuel2mix = fs.getFuelMix(fuel2, m2)
+b = fs.blend(fuel1mix, fuel2mix)
+print(fs.getFuelMass(fuel2mix))
 
-fuel = ['Bagasse1','Bagasse0']
-frac = fs1.fraction(fuel)
-a = g.get_fuel_db(frac['mass'][0])
-mix = fs2.getFuelMix(fuel[0], 1)
-b = fs2.stoichO2(mix)
-
-print(a[1])
-print(b)
+# a = g.isotCogasification('SMC', 'RS', 2.4, 0.6/2.4, 0, 940+273.15, 1, 0.32, 0.49/(pp.Mw['H2O']/pp.Mw['C']), 'ER', 'SR')
+# print(a.species_moles[pp.i['CO2']]/sum(a.species_moles)*100)
+# print(a.species_moles[pp.i['H2']]/sum(a.species_moles)*100)
+# print(a.species_moles[pp.i['N2']]/sum(a.species_moles)*100)
+# print(a.species_moles[pp.i['CO']]/sum(a.species_moles)*100)
+# print(a.species_moles[pp.i['CH4']]/sum(a.species_moles)*100)
