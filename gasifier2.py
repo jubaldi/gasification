@@ -58,7 +58,7 @@ def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
         Object representing the mixture of phases in the feedstock.
     '''
 
-    feed = pp.f
+    feed = pp.mix()
 
     mw = np.fromiter(pp.Mw.values(), dtype=float) # molecular weights
     fuelMoles = fuelMix.species_moles # moles for each species
@@ -66,15 +66,15 @@ def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
     totalFuelMass = np.sum(fuelMass) # total fuel mass in kg
 
     moistMass = moist * totalFuelMass # mass of d.b. moisture in kg
-    moistMoles = moistMass / pp.Mw['H2O'] # moles of d.b. moisture
+    moistMoles = moistMass * 1000 / pp.Mw['H2O'] # moles of d.b. moisture
     
-    steamMoles = steam / pp.Mw['H2O'] # moles of steam
+    steamMoles = steam * 1000 / pp.Mw['H2O'] # moles of steam
 
     H2OMoles = moistMoles + steamMoles # total moles of water
 
-    airO2Moles = 0.23211606*air/pp.Mw['O2']
-    airN2Moles = 0.75507754*air/pp.Mw['N2']
-    airArMoles = 0.01280640*air/pp.Mw['Ar']
+    airO2Moles = 1000*0.23211606*air/pp.Mw['O2']
+    airN2Moles = 1000*0.75507754*air/pp.Mw['N2']
+    airArMoles = 1000*0.01280640*air/pp.Mw['Ar']
 
     #pureO2Moles = O2 / pp.Mw['O2'] # moles of pure O2
 
