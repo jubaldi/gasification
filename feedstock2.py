@@ -22,6 +22,7 @@
 #==============================================================================
 # import libraries
 #==============================================================================
+from matplotlib.pyplot import get
 import numpy as np
 import pandas as pd
 import pp2 as pp
@@ -172,21 +173,97 @@ def ERtoair(fuelMix, ER=1.0):
 
     return air
 
-# def steam_to_carbon_ratio(self, fuel, steam):
-#     mol = chon_moles(self, 0, fuel, 0, 0, 0)
-#     mol_of_C = mol[0]
-#     mol_of_steam = steam / pp.Mw[pp.i_H2O]
-#     return mol_of_steam / mol_of_C
+def steamtoSR(mix, steam):
+    '''
+    Calculates the Steam to Carbon Ratio (SR) equivalent to the given steam mass for the mixture.
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Fuel mixture object.
+    steam : float
+        Steam mass [kg]
+
+    Returns
+    -------
+    SR : float
+        Steam to Carbon Ratio [mol/mol]
+    '''
+    steamMoles = steam*1000 / pp.Mw['H2O']
+    if mix.element_moles('C') == 0:
+        raise ValueError('No carbon in mixture.')
+    SR = steamMoles / mix.element_moles('C')
+    return SR
+
+def SRtosteam(mix, SR):
+    '''
+    Calculates the steam mass equivalent to the given Steam to Carbon Ratio (SR) for the mixture.
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Fuel mixture object.
+    SR : float
+        Steam to Carbon Ratio [mol/mol]
     
-# def mass_of_steam(self, fuel, SR=0):
-#     mol = chon_moles(self, 0, fuel, 0, 0, 0)
-#     mol_of_C = mol[0]
-#     mol_of_steam = SR * mol_of_C
-#     return mol_of_steam * pp.Mw[pp.i_H2O]
+    Returns
+    -------
+    steam : float
+        Steam mass [kg]
+    '''
+    if mix.element_moles('C') == 0:
+        raise ValueError('No carbon in mixture.')
+    steamMoles = SR * mix.element_moles('C')
+    steam = steamMoles * pp.Mw['H2O'] / 1000
+    return steam
+
+a = getFuelMix('Almond', 1)
+print(steamtoSR(a, SRtosteam(a, 5.6)))
+
+def OHCratio(mix):
+    '''
+    Calculates H/C and O/C ratios for given mixture.
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Fuel mixture object.
+
+    Returns
+    -------
+    HC : float
+        H/C ratio [mol/mol]
+    OC : float
+        O/C ratio [mol/mol]
+    '''
+    if mix.element_moles('C') == 0:
+        raise ValueError('No carbon in mixture.')
+    HC = mix.element_moles('H') / mix.element_moles('C')
+    OC = mix.element_moles('O') / mix.element_moles('C')
+    return HC, OC
+
+def blend(fuelMix1, fuelMix2):
+    '''
+    Blend two fuel mixtures, using the mass already given by Cantera.
+
+    Parameters
+    ----------
+    fuelMix1 : Cantera 'Mixture' object
+        Fuel mixture object.
+    fuelMix2 : Cantera 'Mixture' object
+        Fuel mixture object.
     
-# def ohc_ratio(self, moist, fuel, air, o2, stm):
-#     C, H, O, N = chon_moles(self, moist, fuel, air, o2, stm)
-#     return H/C, O/C
+    Returns
+    -------
+    fuelBlend : Cantera 'Mixture' object
+        Mixture object representing fuel blend.
+    '''
+    moles1 = fuelMix1.species_moles
+    moles2 = fuelMix2.species_moles
+    moles = moles1 + moles2
+    fuelBlend = pp.f
+    fuelBlend.species_moles = moles
+    return fuelBlend
 
 # def mass_to_mole_fraction(self, Mw1, Mw2):
 #     """
