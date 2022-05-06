@@ -28,6 +28,8 @@ s = ct.Solution('data/min-species.xml','solid')
 g = ct.Solution('data/min-species.xml','gas')
 #print s.species_names
 air = ct.Solution('data/air.cti','air')
+def mix():
+    return ct.Mixture([(s,1),(g,1)])
 f = ct.Mixture([(s,1),(g,1)])
 # preallocate variable
 nsp = f.n_species

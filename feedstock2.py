@@ -45,11 +45,11 @@ def getFuelMix(fuelID, fuelMass):
         The fuel mixture object.
     '''
     comp = fu.fuelComp(fuelID)
-    massBySpecies = {key: value*fuelMass for key, value in comp.items()}
+    massBySpecies = {key: value*fuelMass for key, value in comp.items()} # kg
 
     molesBySpecies = {key: value*1000/pp.Mw[key] for key, value in massBySpecies.items()}
 
-    fuelMix = pp.f
+    fuelMix = pp.mix()
 
     molesInOrder = np.zeros(len(fuelMix.species_names))
     for index, species in enumerate(fuelMix.species_names):
@@ -258,7 +258,7 @@ def blend(fuelMix1, fuelMix2):
     moles1 = fuelMix1.species_moles
     moles2 = fuelMix2.species_moles
     moles = moles1 + moles2
-    fuelBlend = pp.f
+    fuelBlend = pp.mix()
     fuelBlend.species_moles = moles
     return fuelBlend
 
