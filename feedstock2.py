@@ -187,7 +187,7 @@ def steamtoSR(mix, steam):
     Returns
     -------
     SR : float
-        Steam to Carbon Ratio [mol/mol]
+        Steam to Carbon Ratio [kmol/kmol]
     '''
     steamMoles = steam*1000 / pp.Mw['H2O']
     if mix.element_moles('C') == 0:
