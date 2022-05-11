@@ -151,24 +151,23 @@ def ash(self):
                                 comp[i,:] = np.array([54.06, 6.57, 23.18, 6.85,
                                                        0.82, 1.60,  1.83, 0.50,
                                                        1.05, 3.54,     0])
-                        if row[typeIndex] == 'Biomass':
-                            if row[categoryIndex] == 'Wood' or \
-                               row[categoryIndex] == 'Charcoal':
+                        elif row[typeIndex] == 'Biomass':
+                            if row[categoryIndex] == 'Wood' or row[categoryIndex] == 'Charcoal':
                                 ## mean compostion [Vassilev2013]
                                 comp[i,:] = np.array([22.22, 43.03, 5.09, 3.44,
                                                        2.85, 10.75, 6.07, 3.48,
                                                        0.29,  2.78, 0])
-                            if row[categoryIndex] == 'Straw':
+                            elif row[categoryIndex] == 'Straw':
                                 ## mean compostion [Vassilev2013]
                                 comp[i,:] = np.array([43.94, 14.13, 2.71, 1.42,
                                                        1.35, 24.49, 4.66, 4.13,
                                                        0.16,  3.01, 0])
-                            if row[categoryIndex] == 'Grass':
+                            elif row[categoryIndex] == 'Grass':
                                 ## mean compostion [Vassilev2013]
                                 comp[i,:] = np.array([46.18, 11.23, 1.39, 0.98,
                                                        1.25, 24.59, 4.02, 6.62,
                                                        0.08,  3.66, 0])
-                            if row[categoryIndex] == 'Agricultural':
+                            elif row[categoryIndex] == 'Agricultural':
                                 ## mean compostion [Vassilev2013]
                                 comp[i,:] = np.array([33.39, 14.86, 3.66, 3.26,
                                                        2.29, 26.65, 5.62, 6.48,
@@ -210,7 +209,19 @@ def ash(self):
             comp /= comp.sum(axis=1)[:, np.newaxis]
     f.close()
     return {'fraction':frac, 'composition':comp}
-    
+
+# with open(fuels,'r') as f:
+#     rownum = 0
+#     for row in csv.reader(f):
+#         if rownum == 55:
+#             print(row[typeIndex], row[categoryIndex])
+#         rownum += 1
+# fuel1 = 'SMC'
+# fuel2 = 'RS'
+
+# a1 = ash([fuel1,fuel2])['composition'][1]
+# print(a1)
+
 def fixed_carbon(self):
     """
     Get the fixed carbon fraction value for a list of fuels. 

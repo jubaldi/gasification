@@ -47,7 +47,7 @@ def getFuelMix(fuelID, fuelMass):
     comp = fu.fuelComp(fuelID)
     massBySpecies = {key: value*fuelMass for key, value in comp.items()} # kg
 
-    molesBySpecies = {key: value*1000/pp.Mw[key] for key, value in massBySpecies.items()}
+    molesBySpecies = {key: value/pp.Mw[key] for key, value in massBySpecies.items()} # kmol
 
     fuelMix = pp.mix()
 
@@ -79,7 +79,7 @@ def getFuelMass(fuelMix):
     '''
     fuelMass = 0
     for index, species in enumerate(fuelMix.species_names):
-        fuelMass += fuelMix.species_moles[index]*pp.Mw[species]/1000
+        fuelMass += fuelMix.species_moles[index]*pp.Mw[species] # kg
 
     return fuelMass
 
@@ -97,7 +97,7 @@ def stoichO2(fuelMix):
     Returns
     -------
     stoichO2frac : float
-        The stoichometric amount of O2 in moles by the fuel moles [mol/mol]
+        The stoichometric amount of O2 in moles by the fuel moles [kmol/kmol]
     '''
 
     totalMoles = sum(fuelMix.species_moles)
@@ -135,8 +135,8 @@ def airtoER(fuelMix, air, O2=0.0):
     stoich = stoichO2(fuelMix)
     stoichO2Moles = stoich * totalMoles
 
-    airMoles = air*1000 / pp.Mw_air
-    pureO2Moles = O2*1000 / pp.Mw['O2']
+    airMoles = air / pp.Mw_air
+    pureO2Moles = O2 / pp.Mw['O2']
 
     airO2Moles = 0.21 * airMoles
 
@@ -169,7 +169,7 @@ def ERtoair(fuelMix, ER=1.0):
 
     airMoles = realO2Moles / 0.21
 
-    air = airMoles * pp.Mw_air / 1000
+    air = airMoles * pp.Mw_air
 
     return air
 
@@ -189,7 +189,7 @@ def steamtoSR(mix, steam):
     SR : float
         Steam to Carbon Ratio [kmol/kmol]
     '''
-    steamMoles = steam*1000 / pp.Mw['H2O']
+    steamMoles = steam / pp.Mw['H2O']
     if mix.element_moles('C') == 0:
         raise ValueError('No carbon in mixture.')
     SR = steamMoles / mix.element_moles('C')
@@ -214,7 +214,7 @@ def SRtosteam(mix, SR):
     if mix.element_moles('C') == 0:
         raise ValueError('No carbon in mixture.')
     steamMoles = SR * mix.element_moles('C')
-    steam = steamMoles * pp.Mw['H2O'] / 1000
+    steam = steamMoles * pp.Mw['H2O']
     return steam
 
 def OHCratio(mix):
