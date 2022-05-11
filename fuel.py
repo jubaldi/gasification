@@ -22,6 +22,8 @@ edited using any spreadsheet editor to add new fuel compounds.
 
 # TODO LATER: 2022/05/01 Get heat of formation.
 
+# MISTAKE: (1 - ash) ???
+
 #==============================================================================
 # import libraries
 #==============================================================================
@@ -130,6 +132,9 @@ def ashComp(fuelID):
                 else:
                     comp[index] = species
 
+    # Normalize composition
+    comp = comp/np.sum(comp)
+
     return comp
 
 def fuelComp(fuelID):
@@ -164,40 +169,53 @@ def fuelComp(fuelID):
         VM = rVM
     
     # Convert any base to dry base
-    s = ash + FC + VM
-    ash = ash/s
-    FC = FC/s
-    VM = VM/s
+    #s = ash + FC + VM
+    #ash = ash/s
+    #FC = FC/s
+    #VM = VM/s
 
     fuelComp = {}
 
+    # Is (1-ash) correct???
+
+    # Grab C(gr) content from csv
+    if pd.isnull(fuels.loc[fuelID]['C']):
+        fuelComp['C(gr)'] = 0
+    else:
+        fuelComp['C(gr)'] = (fuels.loc[fuelID]['C']/100)*(1-ash)
+
     # Grab CHONS content from csv
-    for index, species in enumerate(['C', 'H', 'O', 'N', 'S']):
+    for index, species in enumerate(['H', 'O', 'N', 'S']):
         if pd.isnull(fuels.loc[fuelID][species]):
             fuelComp[species] = 0
         else:
-            fuelComp[species] = (fuels.loc[fuelID][species]/100)*VM
+            fuelComp[species] = (fuels.loc[fuelID][species]/100)*(1-ash)
     
     # Grab Cl content from csv
     if pd.isnull(fuels.loc[fuelID]['Cl']):
         fuelComp['CL'] = 0
     else:
-        fuelComp['CL'] = (fuels.loc[fuelID]['Cl']/100)*VM
+        fuelComp['CL'] = (fuels.loc[fuelID]['Cl']/100)*(1-ash)
     
     # Fixed carbon value is stored as C(gr)
-    fuelComp['C(gr)'] = FC
+    #fuelComp['C(gr)'] = FC
 
     ashCompos = ashComp(fuelID)
 
     # Grab a list of species names from pp
-    speciesList = list(pp.i_inv.values())
+    # speciesList = list(pp.i_inv.values())
 
     for index, species in enumerate(['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 
     'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']):
         fuelComp[species] = ashCompos[index]*ash
 
     # Any remaining mass is assumed to be fixed carbon (??) (ASK PROF)
-    fuelComp['C(gr)'] += 1 - sum(fuelComp.values())
+    #fuelComp['C(gr)'] += 1 - sum(fuelComp.values())
+
+    # Normalize each fuel composition
+    s = sum(fuelComp.values())
+    for (key, value) in fuelComp.items():
+        fuelComp[key] = value/s
 
     return fuelComp
 
