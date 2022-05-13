@@ -35,46 +35,47 @@ one = np.ones(1)
 # special functions
 #==============================================================================
 
-# def gas_yield(self, basis='vol', db='y'):
-#     """
-#     Gas yield of reactor outlet.
+def gasYield(outlet, basis='vol', db='y'):
+    """
+    Gas yield of reactor outlet.
 
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     basis : string
-#         Mole amount ('kmol')
-#         Mass amount ('kg')
-#         Normal volume amount ('Nm3')
-#         Normal condition at 273.15K and 1 atm.
-#     db : string
-#         Dry basis ('y', default) or wet basis ('n')
+    Parameters
+    ----------
+    outlet : Cantera 'Mixture' object
+        Gasifier outlet object.
+    basis : string
+        'mole' = mole amount in kmol
+        'mass' = mass amount in kg
+        'vol' = normal volume amount, Nm³
+        Normal condition at 273.15K and 1 atm.
+    db : string
+        Dry basis ('y', default) or wet basis ('n')
     
-#     Returns
-#     -------
-#     yield : float
-#         Syngas yield [kmol] [kg] [Nm3]
-#     """
-#     # mole of gas species
-#     mol = self[pp.s.n_species:]
-#     # wet basis
-#     if (db == 'n'):        
-#         if (basis == 'mole'):
-#             return np.sum(mol) - self[pp.i_N2]
-#         if (basis == 'mass'):
-#             return np.sum(mol*pp.Mw_g) - self[pp.i_N2]*pp.Mw[pp.i_N2]
-#         if (basis == 'vol'):
-#             return ((np.sum(mol) - self[pp.i_N2])*R*Tn)/Pn
-#     # dry basis
-#     if (db == 'y'):
-#         if (basis == 'mole'):
-#             return np.sum(mol) - self[pp.i_H2O] - self[pp.i_N2]
-#         if (basis == 'mass'):
-#             return np.sum(mol*pp.Mw_g) - self[pp.i_H2O]*pp.Mw[pp.i_H2O] \
-#                 - self[pp.i_N2]*pp.Mw[pp.i_N2]
-#         if (basis == 'vol'):
-#             return ((np.sum(mol) - self[pp.i_H2O] - self[pp.i_N2])*R*Tn)/Pn
+    Returns
+    -------
+    yield : float
+        Syngas yield [kmol] [kg] [Nm³]
+    """
+    # mole of gas species
+    moles = outlet.phase_moles(p='gas')
+    molSp = outlet.species_moles
+    mass = fs.getFuelMass(outlet)
+
+    if db == 'y':
+        moles -= molSp[pp.i['H2O']]
+        mass -= molSp[pp.i['H2O']] * pp.Mw['H2O']
+    elif db != 'n':
+        raise ValueError('db must be y or n')
+
+    # wet basis       
+    if basis == 'mole':
+        return moles - molSp[pp.i['N2']]
+    elif basis == 'mass':
+        return mass - molSp[pp.i['N2']]*pp.Mw['N2']
+    elif basis == 'vol':
+        return ((moles - molSp[pp.i['N2']]))*R*Tn/Pn
+    else:
+        raise ValueError('Basis must be mole, mass or vol')
 
 # def get_species(self, species=[], eps=1e-6):
 #     '''
