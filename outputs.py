@@ -77,24 +77,22 @@ def gasYield(outlet, basis='vol', db='y'):
     else:
         raise ValueError('Basis must be mole, mass or vol')
 
-# def get_species(self, species=[], eps=1e-6):
-#     '''
-#     Get a list of species which mole fractions in 'self' are higher than 'eps'.
-#     this function is useful to find a minimum number of species to handle out a
-#     chemical equilibrium problem.
-#     '''
-#     i = 1
-#     while i < pp.nsp:
-#         if self[i] > eps:
-#             species_name = pp.f.species_name(i)
-#             try:
-#                 species.index(species_name)
-#             except:
-#                 # exclude liquid species
-#                 if 'L)' not in species_name:
-#                     species.append(species_name)
-#         i += 1
-#     return species
+def getSpecies(mix, species=[], eps=1e-6):
+    '''
+    Get a list of species which mole fractions in 'mix' are higher than 'eps'.
+    this function is useful to find a minimum number of species to handle out a
+    chemical equilibrium problem.
+    '''
+    i = 1
+    fracs = mix.species_moles / sum(mix.species_moles)
+
+    while i < pp.nsp:
+        if fracs[i] > eps:
+            speciesName = pp.f.species_name(i)
+            if ('L)' not in speciesName) and (speciesName not in species):
+                species.append(speciesName)
+        i += 1
+    return species
     
 # def get_fraction(self, species, normalized='n', db='n', eps=None):
 #     '''
