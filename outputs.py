@@ -35,7 +35,7 @@ one = np.ones(1)
 # special functions
 #==============================================================================
 
-def gasYield(outlet, basis='vol', db='y'):
+def gasYield(outlet, basis='vol', db=True):
     """
     Gas yield of reactor outlet.
 
@@ -61,11 +61,9 @@ def gasYield(outlet, basis='vol', db='y'):
     molSp = outlet.species_moles
     mass = fs.getFuelMass(outlet)
 
-    if db == 'y':
+    if db:
         moles -= molSp[pp.i['H2O']]
         mass -= molSp[pp.i['H2O']] * pp.Mw['H2O']
-    elif db != 'n':
-        raise ValueError('db must be y or n')
 
     # wet basis       
     if basis == 'mole':
@@ -79,7 +77,7 @@ def gasYield(outlet, basis='vol', db='y'):
 
 def getSpecies(mix, species=[], eps=1e-6):
     '''
-    Get a list of species which mole fractions in 'mix' are higher than 'eps'.
+    Gets a list of species which mole fractions in 'mix' are higher than 'eps'.
     this function is useful to find a minimum number of species to handle out a
     chemical equilibrium problem.
     '''
@@ -93,6 +91,58 @@ def getSpecies(mix, species=[], eps=1e-6):
                 species.append(speciesName)
         i += 1
     return species
+
+def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False):
+    '''
+    Gets an array of amounts (mole, mass, or fractions) of the given species.
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Fuel mixture object.
+    species : list
+        List of species names.
+    norm : boolean
+        If True, returns normalized amounts, fractions. (default: False, absolute amounts)
+    db : boolean
+        If True, returns amounts in dry basis. (default: False, wet basis)
+    eps : float
+        Any values smaller than 'eps' become zero. (default: None)
+    mass : boolean
+        If True, returns mass amounts [kg]. (default: False, mole amounts [kmol])
+
+    Returns
+    -------
+    amounts : array
+        Array of amounts [kmol] [kg] [kmol/kmol] [kg/kg]
+    '''
+    # Grabbing the total amount [kmol] and H2O content [kmol] for the mixture
+    total = sum(mix.species_moles)
+    H2Ocontent = mix.species_moles[pp.i['H2O']]
+    # Pre-allocating the array
+    amounts = np.zeros(len(species))
+    # Getting the mole amounts [kmol] of the species
+    for i, v in enumerate(species):
+        amounts[i] = mix.species_moles[pp.i[v]]
+    # Converting mole to mass [kg]
+    if mass:
+        for i, v in enumerate(species):
+            amounts[i] *= pp.Mw[v]
+        total = fs.getFuelMass(mix)
+        H2Ocontent *= pp.Mw['H2O']
+    # Subtracting H2O content for dry basis
+    if db:
+        total -= H2Ocontent
+    # Normalizing the amounts
+    if norm:
+        amounts /= total
+    # Making small values equal to zero
+    if eps is not None:
+        for j, a in enumerate(amounts):
+            if a < eps:
+                amounts[j] = 0
+    return amounts
+
     
 # def get_fraction(self, species, normalized='n', db='n', eps=None):
 #     '''
