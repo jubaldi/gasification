@@ -143,43 +143,49 @@ def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False):
                 amounts[j] = 0
     return amounts
 
+def H2CO(mix, mass=False):
+    '''
+    Returns the ratio of H2 moles to CO moles of the mixture.
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Fuel mixture object.
+    mass : boolean
+        If True, returns mass ratio [kg/kg]. (default: False, mole ratio [kmol/kmol])
     
-# def get_fraction(self, species, normalized='n', db='n', eps=None):
-#     '''
-#     db : string
-#         Dry basis ('y') or wet basis ('n', default)
-#     '''
-#     ## TODO: Make available for mass fraction calculation
-#     idx = len(species)
-#     mole = np.zeros(idx, 'd')
-#     i = 0
-#     while i < idx:
-#         # get values
-#         try:
-#             mole[i] = self[pp.f.species_index('solid', species[i])]#/mole_solid
-#         except:
-#             mole[i] = self[pp.f.species_index('gas', species[i])]#/mole_gas
-#         if eps != None:
-#             # make small values as zero
-#             if mole[i] < eps:
-#                 mole[i] = 0
-#         i += 1
-#     # convert mole amount to mole fraction
-#     mole /= sum(self)
-#     if db == 'y':
-#         mole *= (1 - self[pp.i_H2O])
-#     if normalized == 'y':
-#         # normalize values
-#         mole /= np.sum(mole)
-#     return mole
-    
-# def h2co_ratio(self):
-#     h2 = self[pp.f.species_index('gas', 'H2')]
-#     co = self[pp.f.species_index('gas', 'CO')]
-#     return h2/co
-    
-# def carbon_conversion(products, reagents):
-#     return (reagents[pp.i_C] - products[pp.i_C]) / reagents[pp.i_C]
+    Returns
+    -------
+    H2CO : float
+        Ratio of H2 amount to CO amount [kmol/kmol] [kg/kg]
+    '''
+    H2 = mix.species_moles[pp.i['H2']]
+    CO = mix.species_moles[pp.i['CO']]
+    if mass:
+        H2 *= pp.Mw['H2']
+        CO *= pp.Mw['CO']
+    return H2/CO
+
+def carbonConv(products, reagents):
+    '''
+    Returns the carbon conversion of the products to the reagents.
+
+    Parameters
+    ----------
+    products : Cantera 'Mixture' object
+        Object representing products.
+    reagents : Cantera 'Mixture' object
+        Object representing reagents.
+
+    Returns
+    -------
+    conv : float
+        Carbon conversion [dimensionless]
+    '''
+    Creag = sum(getAmounts(reagents, ['C(gr)', 'C']))
+    Cprod = sum(getAmounts(products, ['C(gr)', 'C']))
+    conv = (Creag - Cprod)/Creag
+    return conv
 
 # def syngas_hhv(self, fuel_mass=1.0, basis='vol'):
 #     """
