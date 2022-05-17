@@ -103,7 +103,7 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
     fuelMass : float
         The fuel mass [kg]
     moisture : float
-        The moisture mass fraction, dry base [kg/kg]
+        The moisture mass fraction, dry basis [kg/kg]
     T : float
         Temperature [K]
     P : float
@@ -181,7 +181,7 @@ def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15,
     blend : float
         Fuel #2 to total fuel mass ratio [kg]
     moisture : float
-        The moisture mass fraction, dry base [kg/kg]
+        The moisture mass fraction, dry basis [kg/kg]
     T : float
         Temperature [K]
     P : float

@@ -168,7 +168,7 @@ def fuelComp(fuelID):
     else:
         VM = rVM
     
-    # Convert any base to dry base
+    # Convert any basis to dry basis
     #s = ash + FC + VM
     #ash = ash/s
     #FC = FC/s

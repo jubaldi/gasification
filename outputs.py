@@ -213,15 +213,15 @@ def syngasHHV(mix, basis='vol'):
     '''
     HHV_H2 = pp.Hfo['H2'] + 0.5*pp.Hfo['O2'] - pp.Hfo['H2O']
     HHV_CH4 = pp.Hfo['CH4'] + 2*pp.Hfo['O2'] - pp.Hfo['CO2'] - 2*pp.Hfo['H2O']
-    HHV_CO = pp.Hfo['CO'] + 1*pp.Hfo['O2'] - pp.Hfo['CO2']                  # TODO: CHECK!!! 1 O2??? Shouldn't it be 0.5 O2?
-#    HHV_C2H6 = pp.Hfo['C2H6'] + 3.5*pp.Hfo['O2'] - 2*pp.Hfo['CO2'] - 3*pp.Hfo['H2O']
+    HHV_CO = pp.Hfo['CO'] + 1*pp.Hfo['O2'] - pp.Hfo['CO2']       # TODO: CHECK!!! 1 O2??? Shouldn't it be 0.5 O2?
+    #HHV_C2H6 = pp.Hfo['C2H6'] + 3.5*pp.Hfo['O2'] - 2*pp.Hfo['CO2'] - 3*pp.Hfo['H2O']
 
     H2 = mix.species_moles[pp.i['H2']]
     CH4 = mix.species_moles[pp.i['CH4']]
     CO = mix.species_moles[pp.i['CO']]
-#    C2H6 = mix.species_moles[pp.i['C2H6']]
+    #C2H6 = mix.species_moles[pp.i['C2H6']]
 
-    HHV = (1e-6)*(H2*HHV_H2 + CH4*HHV_CH4 + CO*HHV_CO) #+ C2H6*HHV_C2H6)
+    HHV = (1e-6)*(H2*HHV_H2 + CH4*HHV_CH4 + CO*HHV_CO) # + C2H6*HHV_C2H6)
     
     HHV /= gasYield(mix, basis)
 
@@ -229,82 +229,38 @@ def syngasHHV(mix, basis='vol'):
 
     # TODO: Add basis = fuel mass (??)
 
-# def syngas_hhv(self, fuel_mass=1.0, basis='vol'):
-#     """
-#     Higher heating value of gas-phase products (syngas).
+def syngasLHV(mix):
+    '''
+    Lower heating value of gas-phase products (syngas).
 
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     fuel : float
-#         Mass of fuel, w.b.
-#     basis : string
-#         HHV in mass fraction = 'w', mole fraction = 'm', 
-#         volume fraction = 'v' (default)
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Syngas mixture object.
 
-#     Returns
-#     -------
-#     HHV : float
-#         Higher heating value in the respective basis (mass, mole, or volume), 
-#         d.b. [MJ/kg] [MJ/kmol] [MJ/Nm3]
-#     """
-#     ns = pp.nsp
-#     # preallocate variables
-#     sp = []
-#     hhv_i = np.zeros(ns) # will be nonzero to 'heating' species
-#     # find key species
-#     for i in range(ns):
-#         if (i == pp.f.species_index('gas','H2') or \
-#             i == pp.f.species_index('gas','CH4') or \
-#             i == pp.f.species_index('gas','CO') #or \
-# #            i == pp.f.species_index('gas','C2H6')
-#             ):
-#             sp = np.append(sp, pp.f.species_name(i))
-#             hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') \
-#             + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] \
-#             - (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] \
-#             # FIXME: liquid or gas water?
-#             - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O] # [J/kmol]
-#     # higher heating value
-#     hhv = np.sum(self*hhv_i)*1e-6 # [MJ]
-#     if (basis == 'syngas mole'):
-#         return hhv/gas_yield(self, db='y', basis='mole') # d.b. [MJ/kmol]
-#     if (basis == 'syngas mass'):
-#         return hhv/gas_yield(self, db='y', basis='mass') # d.b. [MJ/kg]
-#     if (basis == 'fuel mass'):
-#         return hhv/fuel_mass # [MJ/kg]
-#     if (basis == 'syngas vol'):
-#         return hhv/gas_yield(self, db='y', basis='vol') # d.b. [MJ/Nm3]
+    Returns
+    -------
+    LHV : float
+        Lower heating value [MJ/kmol]
+    '''
+    LHV_H2 = 120.092*pp.Mw['H2']
+    LHV_CH4 = 49.855*pp.Mw['CH4']
+    LHV_CO = 10.160*pp.Mw['CO']
+    #LHV_C2H6 = 47.208*pp.Mw['C2H6']
 
-# def syngas_lhv(self, fuel_mass=1.0):
-#     """
-#     Lower heating value (LHV) of gas-phase products (syngas).
+    H2 = mix.species_moles[pp.i['H2']]
+    CH4 = mix.species_moles[pp.i['CH4']]
+    CO = mix.species_moles[pp.i['CO']]
+    #C2H6 = mix.species_moles[pp.i['C2H6']
 
-#     Parameters
-#     ----------
-#     self : ndarray
-#         Mole of products [kmol]
-#     fuel : float
-#         Mass of fuel, w.b.
-#     basis : string
-#         LHV in mass fraction = 'w', mole fraction = 'm', 
-#         volume fraction = 'v' (default)
+    LHV = H2*LHV_H2 + CH4*LHV_CH4 + CO*LHV_CO #+ C2H6*LHV_C2H6
 
-#     Returns
-#     -------
-#     lhv : float
-#         Lower heating value [MJ/kg]
-#     """
-#     lhv_CO = 10.160*pp.Mw[pp.i_CO] # MJ/kmol
-#     lhv_CH4 = 49.855*pp.Mw[pp.i_CH4] # MJ/kmol
-# #    lhv_C2H6 = 47.208*pp.Mw[pp.i_C2H6] # MJ/kmol
-#     lhv_H2 = 120.092*pp.Mw[pp.i_H2] # MJ/kmol
-#     return (lhv_CO*self[pp.i_CO] + lhv_CH4*self[pp.i_CH4] \
-# #            + lhv_C2H6*self[pp.i_C2H6] 
-#             + lhv_H2*self[pp.i_H2])*(1 \
-#             - self[pp.i_H2O]/gas_yield(self, db='n', basis='mole'))
-        
+    LHV *= (1 - mix.species_moles[pp.i['H2O']] / gasYield(mix, basis='mole', db=False)) # Não entendi essa linha de código
+
+    # TODO: Add basis
+
+    return LHV
+
 # def gas_hhv(self, basis='vol'):
 #     """
 #     Higher heating value of gas-phase products (fuel gas).
@@ -362,12 +318,24 @@ def syngasHHV(mix, basis='vol'):
 #     if (basis == 'vol'):
 #         return hhv/gas_yield(self, db='y', basis='vol') # d.b. [MJ/Nm3]
 
-# def cold_gas_efficiency(self, fuel_lhv, moisture_fuel):
-#     """
-#     Return cold gas efficiency of gasification.
-#     fuel_lhv : ndarray
-#         Fuel LHV
-#     moisture_fuel : ndarray
-#         Fuel moisture
-#     """
-#     return (syngas_lhv(self, 1 + moisture_fuel)/fuel_lhv)    
+
+def coldGasEff(mix, fuelLHV, moist=0.0):
+    """
+    Returns cold gas efficiency of gasification.
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Fuel mixture object.
+    fuelLHV : float
+        Fuel LHV
+    moist : float
+        Fuel moisture
+
+    Returns
+    -------
+    coldGasEff : float
+        Cold gas efficiency [dimensionless]
+    """
+    return syngasLHV(mix)/fuelLHV
+
