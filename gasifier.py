@@ -703,11 +703,8 @@ def syngas_hhv(self, fuel_mass=1.0, basis='vol'):
 #            i == pp.f.species_index('gas','C2H6')
             ):
             sp = np.append(sp, pp.f.species_name(i))
-            hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') \
-            + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] \
-            - (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] \
-            # FIXME: liquid or gas water?
-            - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O] # [J/kmol]
+            hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] - (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O] 
+            # FIXME: liquid or gas water?# [J/kmol]
     # higher heating value
     hhv = np.sum(self*hhv_i)*1e-6 # [MJ]
     if (basis == 'syngas mole'):

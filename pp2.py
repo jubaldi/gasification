@@ -63,7 +63,7 @@ Hfo_g = g.standard_enthalpies_RT*To*R
 
 # turn Hfo into dict - NLA 17/04/2022
 Hfo = {**dict(zip(names_s,Hfo_s)), **dict(zip(names_g,Hfo_g))}
-#Hfo['H2O(l)'] = -283970115.359
+Hfo['H2O(l)'] = -283970115.359
 
 # RODOLFO
 # Hfo_list = np.concatenate((Hfo_s, Hfo_g))

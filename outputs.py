@@ -58,20 +58,25 @@ def gasYield(outlet, basis='vol', db=True):
     """
     # mole of gas species
     moles = outlet.phase_moles(p='gas')
-    molSp = outlet.species_moles
-    mass = fs.getFuelMass(outlet)
+
+    mass = 0
+    for i, sp in enumerate(outlet.phase(outlet.phase_index('gas')).species_names):
+        mass += outlet.species_moles[pp.i[sp]]*pp.Mw[sp]
 
     if db:
-        moles -= molSp[pp.i['H2O']]
-        mass -= molSp[pp.i['H2O']] * pp.Mw['H2O']
+        moles -= outlet.species_moles[pp.i['H2O']]
+        mass -= outlet.species_moles[pp.i['H2O']] * pp.Mw['H2O']
 
-    # wet basis       
+    moles -= outlet.species_moles[pp.i['N2']]
+    mass -= outlet.species_moles[pp.i['N2']]*pp.Mw['N2']
+    vol = moles*R*Tn/Pn
+     
     if basis == 'mole':
-        return moles - molSp[pp.i['N2']]
+        return moles
     elif basis == 'mass':
-        return mass - molSp[pp.i['N2']]*pp.Mw['N2']
+        return mass
     elif basis == 'vol':
-        return ((moles - molSp[pp.i['N2']]))*R*Tn/Pn
+        return vol
     else:
         raise ValueError('Basis must be mole, mass or vol')
 
@@ -186,6 +191,43 @@ def carbonConv(products, reagents):
     Cprod = sum(getAmounts(products, ['C(gr)', 'C']))
     conv = (Creag - Cprod)/Creag
     return conv
+
+def syngasHHV(mix, basis='vol'):
+    '''
+    Higher heating value of gas-phase products (syngas).
+
+    Parameters
+    ----------
+    mix : Cantera 'Mixture' object
+        Syngas mixture object.
+    basis : string
+        'mole' = mole amount in kmol
+        'mass' = mass amount in kg
+        'vol' = normal volume amount, Nm³
+        Normal condition at 273.15 K and 1 atm.
+
+    Returns
+    -------
+    HHV : float
+        Higher heating value [MJ/kg] [MJ/kmol] [MJ/Nm³]
+    '''
+    HHV_H2 = pp.Hfo['H2'] + 0.5*pp.Hfo['O2'] - pp.Hfo['H2O']
+    HHV_CH4 = pp.Hfo['CH4'] + 2*pp.Hfo['O2'] - pp.Hfo['CO2'] - 2*pp.Hfo['H2O']
+    HHV_CO = pp.Hfo['CO'] + 1*pp.Hfo['O2'] - pp.Hfo['CO2']                  # TODO: CHECK!!! 1 O2??? Shouldn't it be 0.5 O2?
+#    HHV_C2H6 = pp.Hfo['C2H6'] + 3.5*pp.Hfo['O2'] - 2*pp.Hfo['CO2'] - 3*pp.Hfo['H2O']
+
+    H2 = mix.species_moles[pp.i['H2']]
+    CH4 = mix.species_moles[pp.i['CH4']]
+    CO = mix.species_moles[pp.i['CO']]
+#    C2H6 = mix.species_moles[pp.i['C2H6']]
+
+    HHV = (1e-6)*(H2*HHV_H2 + CH4*HHV_CH4 + CO*HHV_CO) #+ C2H6*HHV_C2H6)
+    
+    HHV /= gasYield(mix, basis)
+
+    return HHV
+
+    # TODO: Add basis = fuel mass (??)
 
 # def syngas_hhv(self, fuel_mass=1.0, basis='vol'):
 #     """
