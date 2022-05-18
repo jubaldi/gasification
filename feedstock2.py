@@ -228,16 +228,16 @@ def OHCratio(mix):
 
     Returns
     -------
-    HC : float
-        H/C ratio [mol/mol]
     OC : float
-        O/C ratio [mol/mol]
+        O/C ratio [kmol/kmol]
+    HC : float
+        H/C ratio [kmol/kmol]
     '''
     if mix.element_moles('C') == 0:
         raise ValueError('No carbon in mixture.')
     HC = mix.element_moles('H') / mix.element_moles('C')
     OC = mix.element_moles('O') / mix.element_moles('C')
-    return HC, OC
+    return OC, HC
 
 def blend(fuelMix1, fuelMix2):
     '''

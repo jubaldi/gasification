@@ -124,6 +124,8 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
     -------
     outlet : Cantera 'Mixture' object
         Object representing the mixture at equilibrium.
+    inlet : Cantera 'Mixture' object
+        Object representing the feed mixture.
     '''
     # Create fuel mix
     fuelMix = fs.getFuelMix(fuelID, fuelMass)
@@ -155,14 +157,15 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
         raise ValueError('Invalid steam type')
 
     # Create feed
-    feed = getFeed(fuelMix, moisture, air, steam)
+    inlet = getFeed(fuelMix, moisture, air, steam)
+    outlet = getFeed(fuelMix, moisture, air, steam)
 
     # Calculate equilibrium
-    feed.T = T
-    feed.P = P
-    feed.equilibrate('TP')
+    outlet.T = T
+    outlet.P = P
+    outlet.equilibrate('TP')
 
-    return feed
+    return outlet, inlet
 
 def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15, 
                     P=ct.one_atm, oxi = 0.5, steam=0.0, oType='ER', sType='steam',
@@ -202,6 +205,8 @@ def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15,
     -------
     outlet : Cantera 'Mixture' object
         Object representing the mixture at equilibrium.
+    inlet : Cantera 'Mixture' object
+        Object representing the feed mixture.
     '''
     # Create each fuel mixture
     fuel1Mix = fs.getFuelMix(fuel1, fuel1Mass)
@@ -238,15 +243,15 @@ def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15,
         raise ValueError('Invalid steam type')
 
     # Create feed
-    feed = getFeed(fuelBlend, moisture, air, steam)
-    feed1 = getFeed(fuelBlend, moisture, air, steam)
+    inlet = getFeed(fuelBlend, moisture, air, steam)
+    outlet = getFeed(fuelBlend, moisture, air, steam)
 
     # Calculate equilibrium
-    feed.T = T
-    feed.P = P
-    feed.equilibrate('TP')
+    outlet.T = T
+    outlet.P = P
+    outlet.equilibrate('TP')
 
-    return feed1, feed
+    return outlet, inlet
 
 
             

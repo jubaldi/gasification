@@ -192,7 +192,7 @@ def carbonConv(products, reagents):
     conv = (Creag - Cprod)/Creag
     return conv
 
-def syngasHHV(mix, basis='vol'):
+def syngasHHV(mix, basis='vol', fuelMass = 1.0):
     '''
     Higher heating value of gas-phase products (syngas).
 
@@ -205,6 +205,9 @@ def syngasHHV(mix, basis='vol'):
         'mass' = mass amount in kg
         'vol' = normal volume amount, Nm³
         Normal condition at 273.15 K and 1 atm.
+        'fuel mass' = fuel mass in kg
+    fuelMass : float
+        Mass of fuel [kg] (default: 1.0)
 
     Returns
     -------
@@ -223,7 +226,10 @@ def syngasHHV(mix, basis='vol'):
 
     HHV = (1e-6)*(H2*HHV_H2 + CH4*HHV_CH4 + CO*HHV_CO) # + C2H6*HHV_C2H6)
     
-    HHV /= gasYield(mix, basis)
+    if basis == 'fuel mass':
+        HHV /= fuelMass
+    else:
+        HHV /= gasYield(mix, basis)
 
     return HHV
 
