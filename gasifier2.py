@@ -6,8 +6,6 @@ processes. It uses some predefined functions from Cantera package.
 @author = Rodolfo Rodrigues
 @contact = rodolfo.rodrigues@ufsm.br
 @data = April, 2012, rev.: June, 2013 (adapted to use cython Cantera)
-
-TODO: 2022/05/02 Create function to convert between air, o2, ER and between steam, SR.
 """
 
 #==============================================================================
@@ -18,6 +16,7 @@ import pp2 as pp
 import feedstock as fsold
 import feedstock2 as fs
 import fuel as fu
+import outputs as op
 import cantera as ct
 import numpy as np
 import scipy.optimize as opt
@@ -36,7 +35,7 @@ one = np.ones(1)
 # special functions
 #==============================================================================
 
-def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
+def getFeed(fuelMix, moist=0.0, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     '''
     This function creates a mixture of phases to denote the fuel.
     The fuel is composed as a mixture of char, gas, ash, and moisture phases.
@@ -46,11 +45,15 @@ def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
     fuelMix : Cantera 'Mixture' object
         Object containing the mole amount of each species in the dry fuel.
     moist : float
-        Mass fraction of moisture fuel [kg/kg] (default value is zero)
+        Moisture content of fuel [kg/kg] in dry basis (default value is zero)
     air : float
-        Mass amount of air [kg] (default value is zero)
-    steam : float
-        Mass amount of steam [kg] (default value is zero)
+        Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+    stm : float
+        Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+    airType : str
+        Either 'ER', 'air' or 'O2' (default: 'ER')
+    stmType : str
+        Either 'SR' or 'steam' (default: 'SR')
 
     Returns
     -------
@@ -58,41 +61,64 @@ def getFeed(fuelMix, moist=0.0, air=0.0, steam=0.0):
         Object representing the mixture of phases in the feedstock.
     '''
 
-    feed = pp.mix()
-
-    mw = np.fromiter(pp.Mw.values(), dtype=float) # molecular weights
     fuelMoles = fuelMix.species_moles # kmoles for each species
-    fuelMass = fuelMoles * mw # fuel mass in kg for each species
-    totalFuelMass = np.sum(fuelMass) # total fuel mass in kg
 
-    moistMass = moist * totalFuelMass # mass of d.b. moisture in kg
-    moistMoles = moistMass / pp.Mw['H2O'] # moles of d.b. moisture
+    totalFuelMass = fs.getFuelMass(fuelMix) # total fuel mass in kg
+
+    moistMass = moist * totalFuelMass # mass of moisture in kg
+    moistMoles = moistMass / pp.Mw['H2O'] # moles of moisture
     
-    steamMoles = steam / pp.Mw['H2O'] # moles of steam
+    if stmType == 'SR':
+        stmMass = fs.SRtosteam(fuelMix, stm)
+        SR = stm
+    elif stmType == 'steam':
+        stmMass = stm
+        SR = fs.steamtoSR(fuelMix, stm)
+    else:
+        raise ValueError('Invalid steam type')
 
+    steamMoles = stmMass / pp.Mw['H2O'] # moles of steam
     H2OMoles = moistMoles + steamMoles # total moles of water
+    
+    if airType == 'ER':
+        airMass = fs.ERtoair(fuelMix, air)
+        pureO2Mass = 0
+        ER = air
+    elif airType == 'air':
+        airMass = air
+        pureO2Mass = 0
+        ER = fs.airtoER(fuelMix, air)
+    elif airType == 'O2':
+        airMass = 0
+        pureO2Mass = air
+        ER = fs.airtoER(fuelMix, air=0.0, O2=air)
+    else:
+        raise ValueError('Invalid air type')
 
-    airO2Moles = 0.23211606*air/pp.Mw['O2']
-    airN2Moles = 0.75507754*air/pp.Mw['N2']
-    airArMoles = 0.01280640*air/pp.Mw['Ar']
+    airO2Moles = 0.23211606*airMass/pp.Mw['O2']
+    airN2Moles = 0.75507754*airMass/pp.Mw['N2']
+    airArMoles = 0.01280640*airMass/pp.Mw['Ar']
 
-    #pureO2Moles = O2 / pp.Mw['O2'] # moles of pure O2
+    pureO2Moles = pureO2Mass / pp.Mw['O2'] # moles of pure O2
 
-    O2Moles = airO2Moles #+ pureO2Moles total moles of O2
+    O2Moles = airO2Moles + pureO2Moles # total moles of O2
 
+    # Creating feed mix
+    feed = pp.mix()
     feedMoles = np.zeros(len(feed.species_names))
+    # Adding species moles
     feedMoles += fuelMoles
     feedMoles[pp.i['H2O']] += H2OMoles
     feedMoles[pp.i['O2']] += O2Moles
     feedMoles[pp.i['N2']] += airN2Moles
     feedMoles[pp.i['Ar']] += airArMoles
+    # Updating moles in mix
     feed.species_moles = feedMoles
 
     return feed
 
-def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm, 
-                    oxi = 0.5, steam=0.0, oType='ER', sType='steam',
-                    species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
+                    air=0.5, stm=0.0, airType='ER', stmType='SR'):
     '''
     Isothermal gasification calculation for a single fuel in a given condition.
 
@@ -101,24 +127,21 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
     fuelID : str
         ID of fuel as given by the database (fuels.csv)
     fuelMass : float
-        The fuel mass [kg]
-    moisture : float
-        The moisture mass fraction, dry basis [kg/kg]
+        The fuel mass [kg] (default: 1.0 kg)
+    moist : float
+        Moisture content of fuel [kg/kg] in dry basis (default value is zero)
     T : float
-        Temperature [K]
+        Temperature [K] (default: 1273.15 K)
     P : float
-        Pressure [atm]
-    oxi : float
-        Oxidizer value [kg air] [kg O2] [kg/kg]
-    steam : float
-        Steam value [kg] [kg/kg]
-    oType : str
-        Oxidizer type, 'air', 'O2' or 'ER'
-    sType : str
-        Steam type, 'steam' or 'SR'
-    species : list
-        List of species to include in the calculation.
-
+        Pressure [Pa] (default: 101325 Pa)
+    air : float
+        Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+    stm : float
+        Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+    airType : str
+        Either 'ER', 'air' or 'O2' (default: 'ER')
+    stmType : str
+        Either 'SR' or 'steam' (default: 'SR')
 
     Returns
     -------
@@ -126,50 +149,25 @@ def isotGasification(fuelID, fuelMass, moisture, T=1273.15, P=ct.one_atm,
         Object representing the mixture at equilibrium.
     inlet : Cantera 'Mixture' object
         Object representing the feed mixture.
+    fuelMix : Cantera 'Mixture' object
+        Object representing the dry fuel mixture.
     '''
     # Create fuel mix
     fuelMix = fs.getFuelMix(fuelID, fuelMass)
 
-    # Verify type of oxidizer given
-    if oType == 'air':
-        air = oxi
-        O2 = 0
-        ER = fs.airtoER(fuelMix, oxi)
-    elif oType == 'O2':
-        air = 0
-        O2 = oxi
-        ER = fs.airtoER(fuelMix, 0, oxi) # TODO: Can't use pure O2
-    elif oType == 'ER':
-        air = fs.ERtoair(fuelMix, oxi)
-        O2 = 0
-        ER = oxi
-    else:
-        raise ValueError('Invalid oxidizer type')
-    
-    # Verify type of steam given
-    if sType == 'steam':
-        stm = steam
-        SR = fs.SRtosteam(fuelMix, steam)
-    elif sType == 'SR':
-        stm = fs.steamtoSR(fuelMix, steam)
-        SR = steam
-    else:
-        raise ValueError('Invalid steam type')
-
     # Create feed
-    inlet = getFeed(fuelMix, moisture, air, steam)
-    outlet = getFeed(fuelMix, moisture, air, steam)
+    inlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
+    outlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
 
     # Calculate equilibrium
     outlet.T = T
     outlet.P = P
     outlet.equilibrate('TP')
 
-    return outlet, inlet
+    return outlet, inlet, fuelMix
 
-def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15, 
-                    P=ct.one_atm, oxi = 0.5, steam=0.0, oType='ER', sType='steam',
-                    species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15, 
+                    P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     '''
     Isothermal gasification calculation for a blend of 2 fuels in a given condition.
 
@@ -179,27 +177,24 @@ def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15,
         ID of fuel #1 as given by the database (fuels.csv)
     fuel2 : str
         ID of fuel #2 as given by the database (fuels.csv)
-    fuel1Mass : float
-        Mass of fuel #1 [kg]
+    mass : float
+        Total fuel blend mass [kg] (default: 1.0 kg)
     blend : float
-        Fuel #2 to total fuel mass ratio [kg]
-    moisture : float
-        The moisture mass fraction, dry basis [kg/kg]
+        Fuel #2 to total fuel mass ratio [kg/kg] (default: 0.5)
+    moist : list
+        The moisture mass fraction for each fuel, in dry basis [kg/kg] (default: 0.0 for each fuel)
     T : float
-        Temperature [K]
+        Temperature [K] (default: 1273.15 K)
     P : float
-        Pressure [atm]
-    oxi : float
-        Oxidizer value [kg air] [kg O2] [kg/kg]
-    steam : float
-        Steam value [kg] [kg/kg]
-    oType : str
-        Oxidizer type, 'air', 'O2' or 'ER'
-    sType : str
-        Steam type, 'steam' or 'SR'
-    species : list
-        List of species to include in the calculation.
-
+        Pressure [Pa] (default: 101325 Pa)
+    air : float
+        Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+    stm : float
+        Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+    airType : str
+        Either 'ER', 'air' or 'O2' (default: 'ER')
+    stmType : str
+        Either 'SR' or 'steam' (default: 'SR')
 
     Returns
     -------
@@ -207,52 +202,132 @@ def isotCogasification(fuel1, fuel2, fuel1Mass, blend, moisture, T=1273.15,
         Object representing the mixture at equilibrium.
     inlet : Cantera 'Mixture' object
         Object representing the feed mixture.
+    fuelMix : Cantera 'Mixture' object
+        Object representing the dry fuel mixture.
     '''
     # Create each fuel mixture
+    fuel1Mass = mass*(1-blend)
+    fuel2Mass = mass*blend
     fuel1Mix = fs.getFuelMix(fuel1, fuel1Mass)
-    fuel2Mass = fuel1Mass * blend # WRONG
     fuel2Mix = fs.getFuelMix(fuel2, fuel2Mass)
 
     # Create fuel blend
     fuelBlend = fs.blend(fuel1Mix, fuel2Mix)
 
-    # Verify type of oxidizer given
-    if oType == 'air':
-        air = oxi
-        O2 = 0
-        ER = fs.airtoER(fuelBlend, oxi)
-    elif oType == 'O2':
-        air = 0
-        O2 = oxi
-        ER = fs.airtoER(fuelBlend, 0, oxi) # TODO: Can't use pure O2
-    elif oType == 'ER':
-        air = fs.ERtoair(fuelBlend, oxi)
-        O2 = 0
-        ER = oxi
-    else:
-        raise ValueError('Invalid oxidizer type')
-    
-        # Verify type of steam given
-    if sType == 'steam':
-        stm = steam
-        SR = fs.SRtosteam(fuelBlend, steam)
-    elif sType == 'SR':
-        stm = fs.steamtoSR(fuelBlend, steam)
-        SR = steam
-    else:
-        raise ValueError('Invalid steam type')
+    # Total moisture content [kg/kg]
+    totalMoist = moist[0]*(1-blend) + moist[1]*blend
 
     # Create feed
-    inlet = getFeed(fuelBlend, moisture, air, steam)
-    outlet = getFeed(fuelBlend, moisture, air, steam)
+    inlet = getFeed(fuelBlend, totalMoist, air, stm, airType='ER', stmType='SR')
+    outlet = getFeed(fuelBlend, totalMoist, air, stm, airType='ER', stmType='SR')
 
     # Calculate equilibrium
     outlet.T = T
     outlet.P = P
     outlet.equilibrate('TP')
 
-    return outlet, inlet
+    return outlet, inlet, fuelBlend
 
+def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
+                air=0.5, stm=0.0, airType='ER', stmType='SR', isot=True,
+                species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+    '''
+    Creates a full report of the outputs for a given gasification condition.
+
+    Parameters
+    ----------
+    fuelID : str
+        ID of fuel as given by the database (fuels.csv)
+    fuelMass : float
+        The fuel mass [kg] (default: 1.0 kg)
+    moist : float
+        Moisture content of fuel [kg/kg] in dry basis (default value is zero)
+    T : float
+        Temperature [K] (default: 1273.15 K)
+    P : float
+        Pressure [Pa] (default: 101325 Pa)
+    air : float
+        Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+    stm : float
+        Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+    airType : str
+        Either 'ER', 'air' or 'O2' (default: 'ER')
+    stmType : str
+        Either 'SR' or 'steam' (default: 'SR')
+    isot : bool
+        If True, use isothermal gasification calculation.
+    species : list
+        List of species to be included in the report.
+        (default: ['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O'])
+
+    Returns
+    -------
+    report : dict
+        Dictionary containing the report.
+    '''
+    if isot:
+        # Isothermal gasification
+        outlet, inlet, fuelMix = isotGasification(fuelID, fuelMass, moist, T, P, air, stm, airType, stmType)
+    else:
+        raise NotImplementedError('Non-isothermal gasification not yet implemented.')
+
+    if stmType == 'SR':
+        stmMass = fs.SRtosteam(fuelMix, stm)
+        SR = stm
+    elif stmType == 'steam':
+        stmMass = stm
+        SR = fs.steamtoSR(fuelMix, stm)
+    else:
+        raise ValueError('Invalid steam type')
+    
+    if airType == 'ER':
+        airMass = fs.ERtoair(fuelMix, air)
+        pureO2Mass = 0
+        ER = air
+    elif airType == 'air':
+        airMass = air
+        pureO2Mass = 0
+        ER = fs.airtoER(fuelMix, air)
+    elif airType == 'O2':
+        airMass = 0
+        pureO2Mass = air
+        ER = fs.airtoER(fuelMix, air=0.0, O2=air)
+    else:
+        raise ValueError('Invalid air type')
+
+    # Create report
+    report = {}
+
+    report['FuelID'] = fuelID
+    report['Fuel'] = fu.fuels.loc[fuelID]['Description']
+    report['Mass [kg]'] = fuelMass
+    report['Moisture [kg/kg]'] = moist
+    report['T [K]'] = T
+    report['P [Pa]'] = P
+    report['ER'] = ER
+    report['SR'] = SR
+
+    OC, HC = fs.OHCratio(fuelMix)
+    report['O/C'] = OC
+    report['H/C'] = HC
+
+    fracs = op.getAmounts(outlet, species, norm=True)
+    for i, s in enumerate(species):
+        report[s] = fracs[i]
+
+    report['H2/CO'] = op.H2CO(outlet)
+    report['% CC'] = op.carbonConv(outlet, inlet)*100
+    report['Y (Nm³/kg)'] = op.gasYield(outlet, basis='vol')/fuelMass
+    report['HHV (MJ/kg)'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=fuelMass)
+
+    fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
+    report['% CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)    
+
+    return report
+
+
+def cogasifier():
+    return None
 
             
 # def coprocessing(self, fuel_id, blend, moisture, T, P=1.0,

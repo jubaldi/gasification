@@ -103,10 +103,10 @@ def stoichO2(fuelMix):
     totalMoles = sum(fuelMix.species_moles)
 
     m = lambda e: fuelMix.element_moles(e)
-    stoicO2Mole = m('C') + 0.25*m('H') - 0.5*m('O') + m('S') \
-                - 0.5*m('Cl') + m('Si') + 0.5*m('Ca') + 1.5*m('Al') \
-                + 1.5*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') \
-                + 2.5*m('P') + m('Ti') + 1.5*m('Cr') \
+    stoicO2Mole = (m('C') + 0.25*m('H') - 0.5*m('O') + m('S') - 0.5*m('Cl') +
+                    + m('Si') + 0.5*m('Ca') + 1.5*m('Al') +
+                    + 1.5*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') +
+                    + 2.5*m('P') + m('Ti') + 1.5*m('Cr'))
 
     stoichO2frac = stoicO2Mole / totalMoles
 
@@ -129,7 +129,7 @@ def airtoER(fuelMix, air, O2=0.0):
     Returns
     -------
     ER : float
-        Equivalence ratio [dimensionless]
+        Equivalence ratio [kmol/kmol]
     '''
     totalMoles = sum(fuelMix.species_moles)
     stoich = stoichO2(fuelMix)
@@ -154,7 +154,7 @@ def ERtoair(fuelMix, ER=1.0):
     fuelMix : Cantera 'Mixture' object
         Fuel mixture object.
     ER : float
-        Equivalence ratio [dimensionless]
+        Equivalence ratio [kmol/kmol]
     
     Returns
     -------
