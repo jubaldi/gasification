@@ -321,13 +321,117 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     report['HHV (MJ/kg)'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=fuelMass)
 
     fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
-    report['% CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)    
+    report['% CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)*100  
 
     return report
 
+def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15, 
+                P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR', isot=True,
+                species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+    '''
+    Creates a full report of the outputs for a given cogasification condition.
 
-def cogasifier():
-    return None
+    Parameters
+    ----------
+    fuel1 : str
+        ID of fuel #1 as given by the database (fuels.csv)
+    fuel2 : str
+        ID of fuel #2 as given by the database (fuels.csv)
+    mass : float
+        Total fuel blend mass [kg] (default: 1.0 kg)
+    blend : float
+        Fuel #2 to total fuel mass ratio [kg/kg] (default: 0.5)
+    moist : list
+        The moisture mass fraction for each fuel, in dry basis [kg/kg] (default: 0.0 for each fuel)
+    T : float
+        Temperature [K] (default: 1273.15 K)
+    P : float
+        Pressure [Pa] (default: 101325 Pa)
+    air : float
+        Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+    stm : float
+        Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+    airType : str
+        Either 'ER', 'air' or 'O2' (default: 'ER')
+    stmType : str
+        Either 'SR' or 'steam' (default: 'SR')
+    isot : bool
+        If True, use isothermal gasification calculation.
+    species : list
+        List of species to be included in the report.
+        (default: ['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O'])
+
+    Returns
+    -------
+    report : dict
+        Dictionary containing the report.
+    '''
+    if isot:
+        # Isothermal gasification
+        outlet, inlet, fuelBlend = isotCogasification(fuel1, fuel2, mass, blend, moist, T, P, air, stm, airType, stmType)
+    else:
+        raise NotImplementedError('Non-isothermal gasification not yet implemented.')
+
+    if stmType == 'SR':
+        stmMass = fs.SRtosteam(fuelBlend, stm)
+        SR = stm
+    elif stmType == 'steam':
+        stmMass = stm
+        SR = fs.steamtoSR(fuelBlend, stm)
+    else:
+        raise ValueError('Invalid steam type')
+    
+    if airType == 'ER':
+        airMass = fs.ERtoair(fuelBlend, air)
+        pureO2Mass = 0
+        ER = air
+    elif airType == 'air':
+        airMass = air
+        pureO2Mass = 0
+        ER = fs.airtoER(fuelBlend, air)
+    elif airType == 'O2':
+        airMass = 0
+        pureO2Mass = air
+        ER = fs.airtoER(fuelBlend, air=0.0, O2=air)
+    else:
+        raise ValueError('Invalid air type')
+
+    # Create report
+    report = {}
+
+    report['Fuel #1'] = fu.fuels.loc[fuel1]['Description']
+    report['Fuel #2'] = fu.fuels.loc[fuel1]['Description']
+    report['Total mass [kg]'] = mass
+    report['Blend [%]'] = blend*100
+
+    blendMoist = moist[0]*(1-blend) + moist[1]*blend
+    report['Moisture [kg/kg]'] = blendMoist
+
+    report['T [K]'] = T
+    report['P [Pa]'] = P
+    report['ER'] = ER
+    report['SR'] = SR
+
+    OC, HC = fs.OHCratio(inlet)
+    report['O/C'] = OC
+    report['H/C'] = HC
+
+    fracs = op.getAmounts(outlet, species, norm=True)
+    for i, s in enumerate(species):
+        report[s] = fracs[i]*100
+
+    report['H2/CO'] = op.H2CO(outlet)
+    report['CC [%]'] = op.carbonConv(outlet, inlet)*100
+    report['Y [Nm³/kg]'] = op.gasYield(outlet, basis='vol')/mass
+    report['HHV [MJ/kg]'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=mass)
+
+    fuel1LHV = fu.HV(fuel1, type='LHV', moist=moist[0])
+    fuel2LHV = fu.HV(fuel2, type='LHV', moist=moist[1])
+    blendLHV = fuel1LHV*(1-blend) + fuel2LHV*blend
+    report['% CGE'] = op.coldGasEff(outlet, blendLHV, moist=blendMoist)*100 
+
+    return report
+
 
             
 # def coprocessing(self, fuel_id, blend, moisture, T, P=1.0,
