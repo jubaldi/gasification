@@ -1,0 +1,14 @@
+MUDANÇAS
+Nícolas Lima Anése
+Período: 09/05/2022 a 23/05/2022
+
+Erros / alterações no código original:
+feedstock.py
+- função "ash" deveria ter seus condicionais encadeados usando "elif" e não if.
+Isso causa problemas na hora de detectar o tipo de biomassa/carvão, antes estava
+detectando que qualquer biomassa era "Other".
+
+gasifier.py
+- função "syngas_hhv" não deve usar nova linha para separar itens de uma soma/subtração.
+Isso estava dando problema no valor de hhv_i, que estava calculando só até o termo do O2 
+e ignorando o CO2 e H2O.

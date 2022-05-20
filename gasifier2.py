@@ -166,7 +166,7 @@ def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
 
     return outlet, inlet, fuelMix
 
-def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15, 
+def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15, 
                     P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     '''
     Isothermal gasification calculation for a blend of 2 fuels in a given condition.
@@ -181,7 +181,7 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=127
         Total fuel blend mass [kg] (default: 1.0 kg)
     blend : float
         Fuel #2 to total fuel mass ratio [kg/kg] (default: 0.5)
-    moist : list
+    moist : tuple
         The moisture mass fraction for each fuel, in dry basis [kg/kg] (default: 0.0 for each fuel)
     T : float
         Temperature [K] (default: 1273.15 K)
@@ -302,8 +302,8 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     report['Fuel'] = fu.fuels.loc[fuelID]['Description']
     report['Mass [kg]'] = fuelMass
     report['Moisture [kg/kg]'] = moist
-    report['T [K]'] = T
-    report['P [Pa]'] = P
+    report['T [°C]'] = T - 273.15
+    report['P [atm]'] = P/ct.one_atm
     report['ER'] = ER
     report['SR'] = SR
 
@@ -316,16 +316,16 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
         report[s] = fracs[i]
 
     report['H2/CO'] = op.H2CO(outlet)
-    report['% CC'] = op.carbonConv(outlet, inlet)*100
-    report['Y (Nm³/kg)'] = op.gasYield(outlet, basis='vol')/fuelMass
-    report['HHV (MJ/kg)'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=fuelMass)
+    report['CC [%]'] = op.carbonConv(outlet, inlet)*100
+    report['Y [Nm³/kg]'] = op.gasYield(outlet, basis='vol')/fuelMass
+    report['HHV [MJ/kg]'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=fuelMass)
 
     fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
-    report['% CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)*100  
+    report['CGE [%]'] = op.coldGasEff(outlet, fuelLHV, moist=moist)*100  
 
     return report
 
-def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15, 
+def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15, 
                 P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR', isot=True,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
@@ -341,7 +341,7 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15,
         Total fuel blend mass [kg] (default: 1.0 kg)
     blend : float
         Fuel #2 to total fuel mass ratio [kg/kg] (default: 0.5)
-    moist : list
+    moist : tuple
         The moisture mass fraction for each fuel, in dry basis [kg/kg] (default: 0.0 for each fuel)
     T : float
         Temperature [K] (default: 1273.15 K)
@@ -400,15 +400,15 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15,
     report = {}
 
     report['Fuel #1'] = fu.fuels.loc[fuel1]['Description']
-    report['Fuel #2'] = fu.fuels.loc[fuel1]['Description']
+    report['Fuel #2'] = fu.fuels.loc[fuel2]['Description']
     report['Total mass [kg]'] = mass
     report['Blend [%]'] = blend*100
 
     blendMoist = moist[0]*(1-blend) + moist[1]*blend
     report['Moisture [kg/kg]'] = blendMoist
 
-    report['T [K]'] = T
-    report['P [Pa]'] = P
+    report['T [°C]'] = T - 273.15
+    report['P [atm]'] = P/ct.one_atm
     report['ER'] = ER
     report['SR'] = SR
 
@@ -432,7 +432,71 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=[0.0,0.0], T=1273.15,
 
     return report
 
+def oneToOne(conditions):
+    '''
+    Given a list of multiple items, some of them lists, returns a list of conditions matching 1 to 1 each item.
 
+    Parameters
+    ----------
+    conditions : list
+        List of conditions, where each item can be a list or a single value. All lists must have the same length.
+    
+    Returns
+    -------
+    oneToOne : list
+        List of conditions matching 1 to 1 each item.
+    '''
+
+    # Find first item that is of type list
+    for c in conditions:
+        if isinstance(c, list):
+            Len = len(c)
+    
+    listIndex = []
+    # Now, check if all list items are of the same length
+    for c in conditions:
+        if isinstance(c, list):
+            if len(c) != Len:
+                raise ValueError('All lists must have the same length.')
+
+    oneToOne = []
+    for j in range(Len):
+        item = []
+        for c in conditions:
+            if isinstance(c, list):
+                item.append(c[j])
+            else:
+                item.append(c)
+        oneToOne.append(item)
+
+    return oneToOne
+        
+# def combinatorial(conditions):
+#     '''
+#     Given a list of multiple items, some of them lists, returns a list of conditions combining all of them.
+
+#     Parameters
+#     ----------
+#     conditions : list
+#         List of conditions, where each item can be a list or a single value.
+    
+#     Returns
+#     -------
+#     combine : list
+#         List of conditions combining all items.
+#     '''
+#     combine = []
+#     for c in conditions:
+#         if isinstance(c, list):
+#             item = []
+#             for i, cond in enumerate(c):
+#                 combine.append(item)
+#             item.append(c[j])
+#         else:
+#             item.append(c)
+#     oneToOne.append(item)
+
+#     return None
             
 # def coprocessing(self, fuel_id, blend, moisture, T, P=1.0,
 #                  air=0, O2=0, ER=0.4, steam=0, SR=0,
