@@ -17,8 +17,6 @@
 # TODO: 2022/05/01 Find heating values HHV and LHV from correlations.
 # QSTN: 2022/05/01 Should we assume that remaining mass is fixed carbon?
 
-# TODO LATER: 2022/05/01 Get heat of formation.
-
 #==============================================================================
 # import libraries
 #==============================================================================

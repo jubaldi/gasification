@@ -233,8 +233,6 @@ def syngasHHV(mix, basis='vol', fuelMass = 1.0):
 
     return HHV
 
-    # TODO: Add basis = fuel mass (??)
-
 def syngasLHV(mix):
     '''
     Lower heating value of gas-phase products (syngas).
