@@ -31,7 +31,6 @@ A FAZER:
 - heat_of_formation
 - biochemical_composition
 
-
 gasifier.py
 Dividido em gasifier2.py, energy.py, outputs.py, feedstock2.py
 - FUNÇÕES ELIMINADAS:

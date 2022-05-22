@@ -2,7 +2,7 @@ MUDANÇAS
 Nícolas Lima Anése
 Período: 09/05/2022 a 23/05/2022
 
-Erros / alterações no código original:
+Erros / alterações no código original, para comparação adequada:
 feedstock.py
 - função "ash" deveria ter seus condicionais encadeados usando "elif" e não if.
 Isso causa problemas na hora de detectar o tipo de biomassa/carvão, antes estava
@@ -12,3 +12,66 @@ gasifier.py
 - função "syngas_hhv" não deve usar nova linha para separar itens de uma soma/subtração.
 Isso estava dando problema no valor de hhv_i, que estava calculando só até o termo do O2 
 e ignorando o CO2 e H2O.
+
+Alterações no código novo:
+
+pp2.py
+Sem alterações.
+
+fuel.py
+- Nova função "HV" tem a mesma funcionalidade da antiga "heating_values".
+Busca os HHV e LHV do combustível na base de dados, e converte um no outro.
+(Falta ainda implementar o uso de correlações quando não há nenhum dos dois.)
+
+feedstock2.py
+Novas funções:
+- "OHCratio" = ohc_ratio
+- "blend" = blending
+
+energy.py
+As funções para gaseificação não-isotérmica não foram implementadas ainda.
+
+outputs.py
+Novas funções:
+- "gasYield" = gas_yield
+- "getSpecies" = get_species
+- "getAmounts" = get_fraction
+- "H2CO" = h2co_ratio
+- "carbonConv" = carbon_conversion
+- "syngasHHV" = syngas_hhv
+- "syngasLHV" = syngas_lhv
+- "coldGasEff" = cold_gas_efficiency
+
+gasifier2.py
+Novas funções:
+- "gasifier" -> Realiza a gaseificação de 1 combustível, e retorna diversos resultados importantes na forma de um dict.
+- "cogasifier" -> Realiza a gaseificação de uma mistura de 2 combustíveis, e retorna diversos resultados importantes na forma de um dict.
+
+reactors.py
+Sem alterações.
+
+example.ipynb
+Um Jupyter Notebook demonstrando visualmente os resultados do modelo de equilíbrio para gaseificação, tentando reproduzir os resultados
+do artigo "RODRIGUES, R.; MUNIZ, A. R.; MARCILIO, N. R. 
+Evaluation of biomass and coal co-gasification of Brazilian feedstock using a chemical equilibrium model."
+No momento esse arquivo de exemplo está um pouco desorganizado, sem comentários ou explicações,
+mas dá pra visualizar que os resultados estão bem próximos do esperado, com algumas diferenças.
+Ainda é preciso pensar o que está causando essas pequenas diferenças, em especial no HHV que as diferenças
+estão bem grandes.
+
+Dúvidas:
+- No cálculo do syngasHHV, é utilizada a entalpia de formação dos reagentes e dos produtos de cada 
+reação de combustão para o H2, CH4 e CO. No original, é usada a expressão:
+hhv_i[i] = pp.Hfo[i] + (pp.f.n_atoms(i,'C') + 0.25*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_O2] 
+- (pp.f.n_atoms(i,'C'))*pp.Hfo[pp.i_CO2] - (0.5*pp.f.n_atoms(i,'H'))*pp.Hfo[pp.i_H2O]
+Isso significa que na reação do CO o coeficiente do O2 seria 1, mas ele não deveria ser 0.5?
+De acordo com a reação:
+CO + 0.5 O2 -> CO2
+*Ver gasifier.py linha 706, outputs.py linha 219.
+
+- syngasLHV: não entendi a linha 262 de outputs.py, copiada da linha 744-745 de gasifier.py
+
+Ainda não implementado:
+- ***GASEIFICAÇÃO NÃO ISOTÉRMICA***
+- biochemical_composition
+- gas_hhv
