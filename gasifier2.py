@@ -228,6 +228,63 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
 
     return outlet, inlet, fuelBlend
 
+def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
+                        air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0):
+    '''
+    Non-isothermal gasification calculation for a single fuel in a given condition.
+    Initial fuel temperature is always 25°C (298.15 K, T_ref).
+
+    Parameters
+    ----------
+    fuelID : str
+        ID of fuel as given by the database (fuels.csv)
+    mass : float
+        The fuel mass [kg] (default: 1.0 kg)
+    moist : float
+        Moisture content of fuel [kg/kg] in dry basis (default value is zero)
+    T0 : float
+        Initial air and steam temperature [K] (default: 1273.15 K)
+    P : float
+        Pressure [Pa] (default: 101325 Pa)
+    air : float
+        Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+    stm : float
+        Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+    airType : str
+        Either 'ER', 'air' or 'O2' (default: 'ER')
+    stmType : str
+        Either 'SR' or 'steam' (default: 'SR')
+    heatLoss : float
+        Amount of heat lost to the environment [J]
+
+    Returns
+    -------
+    outlet : Cantera 'Mixture' object
+        Object representing the mixture at equilibrium.
+    inlet : Cantera 'Mixture' object
+        Object representing the feed mixture.
+    fuelMix : Cantera 'Mixture' object
+        Object representing the dry fuel mixture.
+    '''
+    # Create fuel mix
+    fuelMix = fs.getFuelMix(fuelID, mass)
+    fuelMix.T = 298.15 # K
+    fuelMix.P = P
+
+    # Create feed
+    inlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
+    outlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
+
+    H = outlet.H
+
+    # Calculate equilibrium
+    outlet.H = H
+    outlet.P = P
+    outlet.equilibrate('HP')
+
+    return outlet, inlet, fuelMix
+
+
 def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR', isot=True,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):

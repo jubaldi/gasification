@@ -510,15 +510,15 @@ def enthalpy_of_formation(self, hhv):
     mol = f.species_moles # kmol
     Mw = sum(mol*pp.Mw)
     # standard enthalpy of formation [J/kg]
-    return (mol[pp.i_C]*pp.Hfo_CO2 + mol[pp.i_H]/2*pp.Hfo_H2Ol \
-            + mol[pp.i_N]*pp.Hfo_N2 + mol[pp.i_S]*pp.Hfo_SO2 \
-            + mol[pp.i_Cl]*pp.Hfo_ClO + mol[pp.i_SiO2]*pp.Hfo_SiO2 \
-            + mol[pp.i_CaO]*pp.Hfo_CaO + mol[pp.i_Al2O3]*pp.Hfo_Al2O3 \
-            + mol[pp.i_Fe2O3]*pp.Hfo_Fe2O3 + mol[pp.i_Na2O]*pp.Hfo_Na2O \
-            + mol[pp.i_K2O]*pp.Hfo_K2O + mol[pp.i_MgO]*pp.Hfo_MgO \
-            + mol[pp.i_P2O5]*pp.Hfo_P2O5 + mol[pp.i_TiO2]*pp.Hfo_TiO2 \
-            + mol[pp.i_SO3]*pp.Hfo_SO3 + mol[pp.i_Cr2O3]*pp.Hfo_Cr2O3 \
-            - stoic*pp.Hfo_O2 + hhv*1e6*Mw)/mol[pp.i_C]
+    return (mol[pp.i_C]*pp.Hfo_CO2 + mol[pp.i_H]/2*pp.Hfo_H2Ol +
+            mol[pp.i_N]*pp.Hfo_N2 + mol[pp.i_S]*pp.Hfo_SO2 + 
+            mol[pp.i_Cl]*pp.Hfo_ClO + mol[pp.i_SiO2]*pp.Hfo_SiO2 + 
+            mol[pp.i_CaO]*pp.Hfo_CaO + mol[pp.i_Al2O3]*pp.Hfo_Al2O3 + 
+            mol[pp.i_Fe2O3]*pp.Hfo_Fe2O3 + mol[pp.i_Na2O]*pp.Hfo_Na2O + 
+            mol[pp.i_K2O]*pp.Hfo_K2O + mol[pp.i_MgO]*pp.Hfo_MgO + 
+            mol[pp.i_P2O5]*pp.Hfo_P2O5 + mol[pp.i_TiO2]*pp.Hfo_TiO2 + 
+            mol[pp.i_SO3]*pp.Hfo_SO3 + mol[pp.i_Cr2O3]*pp.Hfo_Cr2O3 - 
+            stoic*pp.Hfo_O2 + hhv*1e6*Mw)/mol[pp.i_C]
             
 def mass_of_air(self, fuel, ER=1.0):
     fuel_db, stoic = get_fuel_db(self)

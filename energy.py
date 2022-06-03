@@ -18,6 +18,7 @@ import pp as ppold
 import feedstock as fsold
 import pp2 as pp
 import feedstock2 as fs
+import fuel as fu
 import cantera as ct
 import numpy as np
 import scipy.optimize as opt
@@ -75,34 +76,37 @@ def get_h_cp(mix, value='h,cp', duty=0.0):
     else:
         return h, cp
 
-# def enthalpy_of_formation(self, hhv):
-#     '''
-#     Estimate the standard enthalpy of formation of fuel [J/kg] from higher 
-#     heating value and species composition.
-    
-#     Parameters
-#     ----------
-#     self : ndarray
+def hFormation(fuelID, HHV):
+    '''
+    Estimates the standard enthalpy of formation of the given fuel [J/kg]
+    from Higher Heating Value (HHV) and species composition.
 
-#     Returns
-#     -------
-#     hfo : ndarray
-#         standard enthalpy of formation of fuel [J/kg]
-#     '''
-#     f, stoic = get_fuel_db(self)
-#     mol = f.species_moles # kmol
-#     Mw = sum(mol*pp.Mw)
-#     # standard enthalpy of formation [J/kg]
-#     return (mol[pp.i_C]*pp.Hfo_CO2 + mol[pp.i_H]/2*pp.Hfo_H2Ol \
-#             + mol[pp.i_N]*pp.Hfo_N2 + mol[pp.i_S]*pp.Hfo_SO2 \
-#             + mol[pp.i_Cl]*pp.Hfo_ClO + mol[pp.i_SiO2]*pp.Hfo_SiO2 \
-#             + mol[pp.i_CaO]*pp.Hfo_CaO + mol[pp.i_Al2O3]*pp.Hfo_Al2O3 \
-#             + mol[pp.i_Fe2O3]*pp.Hfo_Fe2O3 + mol[pp.i_Na2O]*pp.Hfo_Na2O \
-#             + mol[pp.i_K2O]*pp.Hfo_K2O + mol[pp.i_MgO]*pp.Hfo_MgO \
-#             + mol[pp.i_P2O5]*pp.Hfo_P2O5 + mol[pp.i_TiO2]*pp.Hfo_TiO2 \
-#             + mol[pp.i_SO3]*pp.Hfo_SO3 + mol[pp.i_Cr2O3]*pp.Hfo_Cr2O3 \
-#             - stoic*pp.Hfo_O2 + hhv*1e6*Mw)/mol[pp.i_C]
+    Parameters
+    ----------
+    fuelID : string
+        Name of the fuel
+    HHV : float
+        Higher Heating Value [J/kg]
 
+    Returns
+    -------
+    hFormation : float
+        Standard enthalpy of formation [J/kg]
+    '''
+    h = lambda x: pp.Hfo[x]
+    mix = fs.getFuelMix(fuelID, 1)
+    f = lambda x: mix.species_moles[pp.i[x]]
+    stoic = fs.stoichO2(mix)
+    hFormation = (f('C(gr)')*h('CO2') + f('H')/2*h('H2O(l)') + 
+                  f('N')*h('N2') + f('S')*h('SO2') + 
+                  f('CL')*h('CLO') + f('CaO(s)')*h('CaO(s)') + 
+                  f('SiO2(hqz)')*h('SiO2(hqz)') + f('AL2O3(a)')*h('AL2O3(a)') +
+                  f('Fe2O3(s)')*h('Fe2O3(s)') + f('Na2O(c)')*h('Na2O(c)') + 
+                  f('K2O(s)')*h('K2O(s)') + f('MgO(s)')*h('MgO(s)') + 
+                  f('P2O5')*h('P2O5') + f('TiO2(ru)')*h('TiO2(ru)') + 
+                  f('SO3')*h('SO3') + f('Cr2O3(s)')*h('Cr2O3(s)') - 
+                  stoic*h('O2') + HHV*1E6) / f('C(gr)')
+    return hFormation
 
 # def simple_equilibrate_hp(self, moisture, fuel, air=zero, steam=zero, 
 #                           P=ct.one_atm, duty=0):

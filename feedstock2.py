@@ -81,6 +81,29 @@ def getFuelMass(fuelMix):
 
     return fuelMass
 
+def Mw(fuelMix):
+    '''
+    Calculates the molar weight of the fuel mixture.
+    
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        Fuel mixture object.
+    
+    Returns
+    -------
+    Mw : float
+        Molar weight [kg/kmol]
+    '''
+    totalMoles = 0
+    totalMass = 0
+    for index, species in enumerate(fuelMix.species_names):
+        totalMoles += fuelMix.species_moles[index]
+        totalMass += fuelMix.species_moles[index]*pp.Mw[species]
+    Mw = totalMass / totalMoles
+
+    return Mw
+
 def stoichO2(fuelMix):
     '''
     Calculates the stoichometric amount of oxygen moles required to
