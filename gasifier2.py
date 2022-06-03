@@ -17,6 +17,7 @@ import feedstock as fsold
 import feedstock2 as fs
 import fuel as fu
 import outputs as op
+import energy as en
 import cantera as ct
 import numpy as np
 import scipy.optimize as opt
@@ -275,7 +276,53 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
     inlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
     outlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
 
-    H = outlet.H
+    fuelMoles = sum(fuelMix.species_moles)
+    HHV = fu.HV(fuelID, type='HHV', moist=moist)
+    Hfo = en.hFormation(fuelMix, HHV)
+
+    moistMoles = moist*mass/pp.Mw['H2O']
+
+    if stmType == 'SR':
+        stmMass = fs.SRtosteam(fuelMix, stm)
+        SR = stm
+    elif stmType == 'steam':
+        stmMass = stm
+        SR = fs.steamtoSR(fuelMix, stm)
+    else:
+        raise ValueError('Invalid steam type')
+
+    steamMoles = stmMass / pp.Mw['H2O'] # moles of steam
+    
+    if airType == 'ER':
+        airMass = fs.ERtoair(fuelMix, air)
+        pureO2Mass = 0
+        ER = air
+    elif airType == 'air':
+        airMass = air
+        pureO2Mass = 0
+        ER = fs.airtoER(fuelMix, air)
+    elif airType == 'O2':
+        airMass = 0
+        pureO2Mass = air
+        ER = fs.airtoER(fuelMix, air=0.0, O2=air)
+    else:
+        raise ValueError('Invalid air type')
+
+    airO2Moles = 0.23211606*airMass/pp.Mw['O2']
+    airN2Moles = 0.75507754*airMass/pp.Mw['N2']
+    airArMoles = 0.01280640*airMass/pp.Mw['Ar']
+
+    pureO2Moles = pureO2Mass / pp.Mw['O2'] # moles of pure O2
+
+    O2Moles = airO2Moles + pureO2Moles # total moles of O2
+
+    inlet_H = (fuelMoles*Hfo + moistMoles*(pp.Hfo['H2O(l)'] + pp.H_vap) +
+                + O2Moles*pp.Hfo['O2'] + airN2Moles*pp.Hfo['N2'] + airArMoles*pp.Hfo['Ar'] +
+                + steamMoles*pp.H_vap) # J
+    
+    desired_H = inlet_H - heatLoss # J
+
+
 
     # Calculate equilibrium
     outlet.H = H

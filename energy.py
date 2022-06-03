@@ -36,7 +36,7 @@ one = np.ones(1)
 # special functions
 #==============================================================================
 
-def get_h_cp(mix, value='h,cp', duty=0.0):
+def get_h_cp(mix, value='h', duty=0.0):
     '''
     Given a mixture, return either the enthalpy (h) or the specific heat capacity (cp).
     TODO: Add duty term to enthalpy calculation
@@ -107,6 +107,28 @@ def hFormation(fuelID, HHV):
                   f('SO3')*h('SO3') + f('Cr2O3(s)')*h('Cr2O3(s)') - 
                   stoic*h('O2') + HHV*1E6) / f('C(gr)')
     return hFormation
+
+def get_enthalpy(self, value='h', duty=0):
+    '''
+    Return enthalpy (h) and specific heat capacity (cp) of a mixture of phases.
+    
+    TODO: Add duty term to enthalpy calculation
+    '''
+    # enthalpy [J] per 1 kg of fuel
+    h = (self.phase_moles(self.phase_index('solid')) \
+        * self.phase(self.phase_index('solid')).enthalpy_mole \
+        + self.phase_moles(self.phase_index('gas')) \
+        * self.phase(self.phase_index('gas')).enthalpy_mole \
+        )/sum(self.species_moles)
+    if value == 'h': return h
+    # specific heat capacity [J/kmol/K]
+    cp = (self.phase_moles(self.phase_index('solid')) \
+        * self.phase(self.phase_index('solid')).cp_mole \
+        + self.phase_moles(self.phase_index('gas')) \
+        * self.phase(self.phase_index('gas')).cp_mole \
+        )/sum(self.species_moles)
+    if value == 'cp': return cp
+    return  h, cp
 
 # def simple_equilibrate_hp(self, moisture, fuel, air=zero, steam=zero, 
 #                           P=ct.one_atm, duty=0):
