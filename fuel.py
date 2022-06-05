@@ -29,6 +29,7 @@ edited using any spreadsheet editor to add new fuel compounds.
 #==============================================================================
 import numpy as np
 import pandas as pd
+import json
 import pp2 as pp
 
 #==============================================================================
@@ -48,9 +49,9 @@ myID = fuels.index.values
 # HHV, LHV: read directly
 # C, H, O, N, S, Cl: read directly then divide by 100
 
-with open('ashes.csv', 'r') as f2:
-    ashes = pd.read_csv(f2, sep=',', header=0, index_col=0)
-    f2.close()
+with open('ashes.json', 'r') as ashFile:
+    ashData = json.load(ashFile)
+    ashFile.close()
 
 def ashFrac(fuelID):
     '''
@@ -76,7 +77,6 @@ def ashFrac(fuelID):
         ashF = readAsh
 
     return ashF
-
 
 def ashComp(fuelID):
     '''
@@ -112,17 +112,16 @@ def ashComp(fuelID):
         if pd.isnull(rComp['SiO2']) and pd.isnull(rComp['CaO']):
             rType = fuels.loc[fuelID]['Type']
             rCat = fuels.loc[fuelID]['Category']
-            if rType in ashes['Type'].values: 
+            if rType in ashData: 
                 fType = rType
             else:
                 fType = 'Other'
-            if rCat in ashes['Category'].values: 
+            if rCat in ashData[fType]:
                 fCat = rCat
             else:
                 fCat = 'Other'
-            compDF1 = ashes.loc[ashes['Type']==fType]
-            compDF = compDF1.loc[compDF1['Category']==fCat]
-            comp = compDF.loc[:,'SiO2':'Cr2O3'].values[0]/100
+            compDict = ashData[fType][fCat]
+            comp = np.array(list(compDict.values()))/100
 
     # If ash composition is given by csv, use it
         else:
