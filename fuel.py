@@ -111,7 +111,6 @@ def ashComp(fuelID):
     # If ash fraction is 0, ash composition doesn't matter
     if ash == 0:
         comp = np.ones(len(rComp))/len(rComp)
-
     else:
         comp = np.zeros(len(rComp))
 
