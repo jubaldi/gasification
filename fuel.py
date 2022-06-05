@@ -72,7 +72,7 @@ def ashFrac(fuelID):
     ashF : float
         Ash fraction [kg/kg]
     '''
-    if fuelID not in fuelData:
+    if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
 
     if "Ash" in fuelData[fuelID]:
@@ -103,7 +103,7 @@ def ashComp(fuelID):
     comp : ndarray
         Composition of ash [kg/kg]
     '''
-    if fuelID not in fuelData:
+    if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
     ash = ashFrac(fuelID)
     rComp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
@@ -158,7 +158,7 @@ def fuelComp(fuelID):
     fuelComp : dict
         A dictionary representing the mass fraction of each species.
     '''
-    if fuelID not in fuelData:
+    if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
 
     # Grab ash, FC and VM from csv
@@ -246,7 +246,7 @@ def HV(fuelID, type='both', moist=0.0):
     HV : float | dict
         The heating value [kJ/kg]
     '''
-    if fuelID not in fuelData:
+    if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
 
     # Check if there is available HHV or LHV data
