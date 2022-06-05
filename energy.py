@@ -36,7 +36,7 @@ one = np.ones(1)
 # special functions
 #==============================================================================
 
-def get_h_cp(mix, value='h', duty=0.0):
+def get_h_cp(mix, value='h'):
     '''
     Given a mixture, return either the enthalpy (h) or the specific heat capacity (cp).
     TODO: Add duty term to enthalpy calculation
@@ -47,13 +47,11 @@ def get_h_cp(mix, value='h', duty=0.0):
         Object containing the mole amount of each species in the dry fuel.
     value : string
         'h' for enthalpy only, 'cp' for cp only, other for both.
-    duty : float
-        TODO
 
     Returns
     -------
     h : float
-        Enthalpy [J] per 1 kg of fuel
+        Enthalpy per mole of fuel [J/kmol]
     cp : float
         Specific heat capacity [J/(kmol.K)]
     '''

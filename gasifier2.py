@@ -230,7 +230,7 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
     return outlet, inlet, fuelBlend
 
 def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
-                        air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0):
+                        air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0, guess=None):
     '''
     Non-isothermal gasification calculation for a single fuel in a given condition.
     Initial fuel temperature is always 25°C (298.15 K, T_ref).
@@ -267,9 +267,11 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
     fuelMix : Cantera 'Mixture' object
         Object representing the dry fuel mixture.
     '''
+    if guess == None: guess = pp.To
+
     # Create fuel mix
     fuelMix = fs.getFuelMix(fuelID, mass)
-    fuelMix.T = 298.15 # K
+    fuelMix.T = guess
     fuelMix.P = P
 
     # Create feed
@@ -278,7 +280,7 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
 
     fuelMoles = sum(fuelMix.species_moles)
     HHV = fu.HV(fuelID, type='HHV', moist=moist)
-    Hfo = en.hFormation(fuelMix, HHV)
+    Hfo = en.hFormation(fuelID, HHV)
 
     moistMoles = moist*mass/pp.Mw['H2O']
 
@@ -315,19 +317,30 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
     pureO2Moles = pureO2Mass / pp.Mw['O2'] # moles of pure O2
 
     O2Moles = airO2Moles + pureO2Moles # total moles of O2
+    totalMoles = fuelMoles + moistMoles + O2Moles + airN2Moles + airArMoles + steamMoles
 
     inlet_H = (fuelMoles*Hfo + moistMoles*(pp.Hfo['H2O(l)'] + pp.H_vap) +
                 + O2Moles*pp.Hfo['O2'] + airN2Moles*pp.Hfo['N2'] + airArMoles*pp.Hfo['Ar'] +
-                + steamMoles*pp.H_vap) # J
+                + steamMoles*pp.H_vap)/totalMoles # J/kmol
     
-    desired_H = inlet_H - heatLoss # J
+    desired_H = inlet_H*(1 - heatLoss) # J/kmol
 
-
-
-    # Calculate equilibrium
-    outlet.H = H
+    outlet.T = guess
     outlet.P = P
-    outlet.equilibrate('HP')
+    outlet.equilibrate('TP')
+
+    def residual(Temp):
+        outlet.T = Temp
+        outlet.P = P
+        outlet_H = en.get_h_cp(outlet)
+        return (outlet_H - desired_H)**2
+    # estimate equilibrium temperature
+    res = opt.minimize_scalar(residual,method='bounded',bounds=(200,6000),
+                                bracket=(residual(1200),residual(3000)))
+    # estimate equilibrium product composition
+    Teq = res.x
+    outlet.T = Teq
+    outlet.P = P
 
     return outlet, inlet, fuelMix
 
