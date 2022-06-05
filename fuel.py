@@ -41,6 +41,10 @@ with open('fuels.csv','r') as f1:
     fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
     f1.close()
 
+with open('fuels.json','r') as fuelFile:
+    fuelData = json.load(fuelFile)
+    fuelFile.close()
+
 # create a list of the fuel names from the first column of the dataframe
 myID = fuels.index.values
 
@@ -68,14 +72,16 @@ def ashFrac(fuelID):
     ashF : float
         Ash fraction [kg/kg]
     '''
+    if fuelID not in fuelData:
+        raise ValueError('Fuel ID not found in database.')
 
-    readAsh = fuels.loc[fuelID]['Ash']/100
-
-    if pd.isnull(readAsh):
-        ashF = 0
+    if "Ash" in fuelData[fuelID]:
+        if fuelData[fuelID]["Ash"] == "":
+            ashF = 0
+        else:
+            ashF = float(fuelData[fuelID]["Ash"]/100)
     else:
-        ashF = readAsh
-
+        ashF = 0
     return ashF
 
 def ashComp(fuelID):
@@ -97,6 +103,8 @@ def ashComp(fuelID):
     comp : ndarray
         Composition of ash [kg/kg]
     '''
+    if fuelID not in fuelData:
+        raise ValueError('Fuel ID not found in database.')
     ash = ashFrac(fuelID)
     rComp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
 
@@ -151,6 +159,8 @@ def fuelComp(fuelID):
     fuelComp : dict
         A dictionary representing the mass fraction of each species.
     '''
+    if fuelID not in fuelData:
+        raise ValueError('Fuel ID not found in database.')
 
     # Grab ash, FC and VM from csv
     ash = ashFrac(fuelID)
@@ -220,7 +230,7 @@ def fuelComp(fuelID):
 
 def HV(fuelID, type='both', moist=0.0):
     '''
-    Gets the heating values (higher, HHV or lower, LHV) for a given fuel.
+    Gets the heating values (HHV or LHV) for a given fuel.
     The fuel must be available in the database (file: 'fuels.csv').
 
     Parameters
@@ -228,7 +238,7 @@ def HV(fuelID, type='both', moist=0.0):
     fuelID : str
         The fuel ID as given by the CSV.
     type : str
-        Either 'HHV', 'LHV' or 'both'
+        Either 'HHV', 'LHV' or other
     moist : float
         The moisture content of the fuel [kg/kg]
 
@@ -237,26 +247,44 @@ def HV(fuelID, type='both', moist=0.0):
     HV : float | dict
         The heating value [kJ/kg]
     '''
+    if fuelID not in fuelData:
+        raise ValueError('Fuel ID not found in database.')
 
-    # Read HHV from database
-    readHHV = fuels.loc[fuelID]['HHV']
-    # Read LHV from database
-    readLHV = fuels.loc[fuelID]['LHV']
+    # Check if there is available HHV or LHV data
+    if "HHV" not in fuelData[fuelID]:
+        isHHV = False
+    else:
+        if not fuelData[fuelID]["HHV"]:
+            isHHV = False
+        else:
+            isHHV = True
+    
+    if "LHV" not in fuelData[fuelID]:
+        isLHV = False
+    else:
+        if not fuelData[fuelID]["LHV"]:
+            isLHV = False
+        else:
+            isLHV = True
+    
     # Read hydrogen content for use in correlations
-    H = fuels.loc[fuelID]['H']/100
+    if not fuelData[fuelID]["H"]: 
+        H = 0
+    else: 
+        H = float(fuelData[fuelID]["H"])/100 
 
-    if pd.isnull(readHHV) and not pd.isnull(readLHV):
-        LHV = readLHV
+    if isLHV and (not isHHV):
+        LHV = float(fuelData[fuelID]["LHV"])
         HHV = (LHV + 2.258*moist)/(1 - moist) + 20.1790296248*H
-    elif pd.isnull(readLHV) and not pd.isnull(readHHV):
-        HHV = readHHV
+    elif isHHV and (not isLHV):
+        HHV = float(fuelData[fuelID]["HHV"])
         LHV = (HHV - 20.1790296248*H)*(1 - moist) - 2.258*moist
-    elif pd.isnull(readHHV) and pd.isnull(readLHV):
+    elif (not isLHV) and (not isHHV):
         HHV = 20 # TODO: Use correlations for HV calculations
         LHV = 20
     else:
-        HHV = readHHV
-        LHV = readLHV
+        HHV = float(fuelData[fuelID]["HHV"])
+        LHV = float(fuelData[fuelID]["LHV"])
 
     LHV *= (1 - moist)
     HHV *= (1 - moist)
@@ -268,10 +296,7 @@ def HV(fuelID, type='both', moist=0.0):
     elif type == 'LHV':
         HV = LHV
     # Get both if type is 'both'
-    elif type == 'both':
-        HV = {'HHV': HHV, 'LHV': LHV}
     else:
-        raise ValueError('type must be either HHV, LHV or both')
+        HV = {'HHV': HHV, 'LHV': LHV}
 
     return HV
-
