@@ -417,7 +417,7 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
 
     report['FuelID'] = fuelID
     report['Fuel'] = fu.fuels.loc[fuelID]['Description']
-    report['Mass'] = mass
+    report['Fuel mass'] = mass
     report['Moisture'] = moist
     report['T'] = T - 273.15
     report['P'] = P/ct.one_atm

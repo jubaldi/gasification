@@ -41,10 +41,6 @@ with open('fuels-updated.csv','r') as f1:
     fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
     f1.close()
 
-with open('fuels.json','r') as fuelFile:
-    fuelData = json.load(fuelFile)
-    fuelFile.close()
-
 # create a list of the fuel names from the first column of the dataframe
 myID = fuels.index.values
 
@@ -418,17 +414,6 @@ def addToDatabase(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
     fuels.loc[fuelID,'Cr2O3'] = ashC[10]
     fuels.to_csv('fuels-updated.csv')
 
-fuelID = "Test"
-Info = {"Description": "Test", "Type": "Test", "Category": "Test", "Reference": "Test", "Year": "Test", "DOI": "Test"}
-moist = ["wb", 1]
-prox = ["wb", 1, 1, 1]
-HV = [1, 1]
-biochem = [1, 1, 1]
-ult = ["wb", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-ashC = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-
-addToDatabase(fuelID, Info, moist, prox, HV, biochem, ult, ashC)
-
 def HV(fuelID, type='both', moist=0.0):
     '''
     Gets the heating values (HHV or LHV) for a given fuel.
@@ -446,46 +431,38 @@ def HV(fuelID, type='both', moist=0.0):
     Returns
     -------
     HV : float | dict
-        The heating value [kJ/kg]
+        The heating value [MJ/kg]
     '''
     if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
 
-    # Check if there is available HHV or LHV data
-    if "HHV" not in fuelData[fuelID]:
-        isHHV = False
-    else:
-        if not fuelData[fuelID]["HHV"]:
-            isHHV = False
-        else:
-            isHHV = True
-    
-    if "LHV" not in fuelData[fuelID]:
-        isLHV = False
-    else:
-        if not fuelData[fuelID]["LHV"]:
-            isLHV = False
-        else:
-            isLHV = True
+    # Read data from CSV
+    rHHV = fuels.loc[fuelID, 'HHV']
+    rLHV = fuels.loc[fuelID, 'LHV']
+    rH = fuels.loc[fuelID, 'H']
     
     # Read hydrogen content for use in correlations
-    if not fuelData[fuelID]["H"]: 
-        H = 0
-    else: 
-        H = float(fuelData[fuelID]["H"])/100 
+    if pd.isnull(rH):
+        H = 0.0
+    else:
+        H = rH
 
-    if isLHV and (not isHHV):
-        LHV = float(fuelData[fuelID]["LHV"])
+    if (not pd.isnull(rLHV)) and (pd.isnull(rHHV)):
+        # Correlation for when only LHV is available
+        LHV = rLHV
         HHV = (LHV + 2.258*moist)/(1 - moist) + 20.1790296248*H
-    elif isHHV and (not isLHV):
-        HHV = float(fuelData[fuelID]["HHV"])
+    elif (not pd.isnull(rHHV)) and (pd.isnull(rLHV)):
+        # Correlation for when only HHV is available
+        HHV = rHHV
         LHV = (HHV - 20.1790296248*H)*(1 - moist) - 2.258*moist
-    elif (not isLHV) and (not isHHV):
+    elif (pd.isnull(rLHV)) and (pd.isnull(rHHV)):
+        # Correlation for when neither LHV nor HHV is available
         HHV = 20 # TODO: Use correlations for HV calculations
         LHV = 20
     else:
-        HHV = float(fuelData[fuelID]["HHV"])
-        LHV = float(fuelData[fuelID]["LHV"])
+        # If both are available
+        HHV = rHHV
+        LHV = rLHV
 
     LHV *= (1 - moist)
     HHV *= (1 - moist)
@@ -496,7 +473,7 @@ def HV(fuelID, type='both', moist=0.0):
     # Get LHV if type is 'LHV'
     elif type == 'LHV':
         HV = LHV
-    # Get both if type is 'both'
+    # Get both if type is not specified
     else:
         HV = {'HHV': HHV, 'LHV': LHV}
 
