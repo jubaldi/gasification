@@ -37,7 +37,7 @@ import pp2 as pp
 #==============================================================================
 
 # Create a dataframe from the csv
-with open('fuels.csv','r') as f1:
+with open('fuels-updated.csv','r') as f1:
     fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
     f1.close()
 
@@ -57,37 +57,101 @@ with open('ashes.json', 'r') as ashFile:
     ashData = json.load(ashFile)
     ashFile.close()
 
-def ashFrac(fuelID):
+def moisture(fuelID, basis="db"):
     '''
-    Get the ash fraction value for a given fuel. 
-    The fuel must be available in the database (file: 'fuels.csv').
+    Gets the moisture content for a given fuel. 
+    The fuel must be available in the database (file: 'fuels-updated.csv').
 
     Parameters
     ----------
     fuelID : str
         The fuel ID as given by the CSV.
+    basis : str
+        "db" = dry basis (default), "wb" = wet basis.
+    
+    Returns
+    -------
+    moist : float
+        Moisture content [kg/kg]
+    '''
+    if fuelID not in myID:
+        raise ValueError('Fuel ID not found in database.')
+    
+    # Read values from CSV
+    rMoist = fuels.loc[fuelID]['Moisture']
+    rMoistBasis = fuels.loc[fuelID]['Mbasis']
+
+    # Check if empty
+    if pd.isnull(rMoist):
+        moist = 0
+    else:
+        moist = rMoist/100 # Convert % to fraction
+    
+    # Convert data to dry basis if not already
+    if rMoistBasis == "wb":
+        moist = moist / (1 - moist) # moist is now in db
+    
+    # Convert dry basis to desired basis for returning
+    if basis == "wb":
+        moist = moist / (1 + moist) # moist is now in wb
+    
+    return moist
+
+def proximate(fuelID, basis="db"):
+    '''
+    Gets the proximate analysis for a given fuel. 
+    The fuel must be available in the database (file: 'fuels-updated.csv').
+
+    Parameters
+    ----------
+    fuelID : str
+        The fuel ID as given by the CSV.
+    basis : str
+        "db" = dry basis (default), "wb" = wet basis.
 
     Returns
     -------
-    ashF : float
-        Ash fraction [kg/kg]
+    prox : dict
+        Proximate analysis of fuel [kg/kg]:
+        {"Ash": Ash, "FC": Fixed Carbon, "VM": Volatile Matter}
     '''
     if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
 
-    if "Ash" in fuelData[fuelID]:
-        if fuelData[fuelID]["Ash"] == "":
-            ashF = 0
+    # Read values from CSV
+    rProxBasis = fuels.loc[fuelID]['Pbasis']
+
+    prox = {}
+
+    # Read values and check if empty
+    for p in ["FC", "Ash", "VM"]:
+        rProx = fuels.loc[fuelID][p]
+        if pd.isnull(rProx):
+            if p == "VM":
+                prox[p] = 1 - prox["FC"] - prox["Ash"] # Assume remaining mass is VM
+            else:
+                prox[p] = 0
         else:
-            ashF = float(fuelData[fuelID]["Ash"]/100)
-    else:
-        ashF = 0
-    return ashF
+            prox[p] = rProx/100
+    
+    # Grab moisture in wb
+    moistWB = moisture(fuelID, basis="wb")
+
+    # Convert data to dry basis if not already
+    if rProxBasis == "wb":
+        for p in prox:
+            prox[p] = prox[p] / (1 - moistWB)
+    
+    # Convert dry basis to desired basis for returning
+    if basis == "wb":
+        for p in prox:
+            prox[p] = prox[p] * (1 - moistWB)
+
+    return prox
 
 def ashComp(fuelID):
     '''
-    Get the ash composition for a given fuel. 
-    SiO2 CaO Al2O3 Fe2O3 Na2O K2O MgO P2O5 TiO2 SO3 Cr2O3
+    Gets the ash composition for a given fuel. 
     The fuel must be available in the database (file: 'fuels.csv').
     
     Default values are used if they are not available. Those values are
@@ -101,11 +165,14 @@ def ashComp(fuelID):
     Returns
     -------
     comp : ndarray
-        Composition of ash [kg/kg]
+        Composition of ash [kg/kg]:
+        [SiO2, CaO, Al2O3, Fe2O3, Na2O, K2O, MgO, P2O5, TiO2, SO3, Cr2O3]
     '''
     if fuelID not in myID:
         raise ValueError('Fuel ID not found in database.')
-    ash = ashFrac(fuelID)
+    
+    # Read values from CSV
+    ash = proximate(fuelID)["Ash"]
     rComp = fuels.loc[fuelID]['SiO2':'Cr2O3']/100
 
     # If ash fraction is 0, ash composition doesn't matter
@@ -143,9 +210,69 @@ def ashComp(fuelID):
 
     return comp
 
+def ultimate(fuelID, basis="db"):
+    '''
+    Gets the ultimate analysis for a given fuel. 
+    The fuel must be available in the database (file: 'fuels-updated.csv').
+
+    Parameters
+    ----------
+    fuelID : str
+        The fuel ID as given by the CSV.
+    basis : str
+        "db" = dry basis (default), "wb" = wet basis, "daf" = dry ash-free basis.
+    
+    Returns
+    -------
+    ult : ndarray
+        Ultimate analysis of fuel [kg/kg]: 
+        [C, H, O, N, S, Cl]
+    '''
+    if fuelID not in myID:
+        raise ValueError('Fuel ID not found in database.')
+    
+    # Read values from CSV
+    rUltBasis = fuels.loc[fuelID]['Ubasis']
+    rC = fuels.loc[fuelID]['C']
+    rH = fuels.loc[fuelID]['H']
+    rO = fuels.loc[fuelID]['O']
+    rN = fuels.loc[fuelID]['N']
+    rS = fuels.loc[fuelID]['S']
+    rCl = fuels.loc[fuelID]['Cl']
+
+    ult = np.zeros(6)
+
+    # Check if empty
+    for i, elem in enumerate([rC, rH, rO, rN, rS, rCl]):
+        if pd.isnull(elem):
+            ult[i] = 0
+        else:
+            ult[i] = elem/100
+
+    moistWB = moisture(fuelID, basis="wb")
+    ashDB = proximate(fuelID, basis="db")["Ash"]
+    
+    # Convert data to dry basis if not already
+    if rUltBasis == "wb":
+        for i, elem in enumerate([rC, rH, rO, rN, rS, rCl]):
+            ult[i] = ult[i] / (1 - moistWB)
+    elif rUltBasis == "daf":
+        for i, elem in enumerate([rC, rH, rO, rN, rS, rCl]):
+            ult[i] = ult[i] * (1 - ashDB)
+        
+    # Convert dry basis to desired basis for returning
+    if basis == "wb":
+        for i, elem in enumerate([rC, rH, rO, rN, rS, rCl]):
+            ult[i] = ult[i] * (1 - moistWB)
+    elif basis == "daf":
+        for i, elem in enumerate([rC, rH, rO, rN, rS, rCl]):
+            ult[i] = ult[i] / (1 - ashDB)
+    
+    return ult
+
 def fuelComp(fuelID):
     '''
-    Get the full mass composition for the fuel.
+    Gets the full mass composition for the dry fuel.
     The fuel must be available in the database (file: 'fuels.csv').
 
     Parameters
@@ -158,67 +285,19 @@ def fuelComp(fuelID):
     fuelComp : dict
         A dictionary representing the mass fraction of each species.
     '''
-    if fuelID not in myID:
-        raise ValueError('Fuel ID not found in database.')
 
-    # Grab ash, FC and VM from csv
-    ash = ashFrac(fuelID)
-    rFC = fuels.loc[fuelID]['Fixed carbon']/100
-    rVM = fuels.loc[fuelID]['Volatile matter']/100
-
-    if pd.isnull(rFC):
-        FC = 0
-    else:
-        FC = rFC
-
-    if pd.isnull(rVM) or rVM == 0:
-        VM = 1 - ash - FC
-    else:
-        VM = rVM
-    
-    # Convert any basis to dry basis
-    #s = ash + FC + VM
-    #ash = ash/s
-    #FC = FC/s
-    #VM = VM/s
+    ash = proximate(fuelID)["Ash"]
+    ult = ultimate(fuelID)
+    ashCompos = ashComp(fuelID)
 
     fuelComp = {}
 
-    # Is (1-ash) correct???
-
-    # Grab C(gr) content from csv
-    if pd.isnull(fuels.loc[fuelID]['C']):
-        fuelComp['C(gr)'] = 0
-    else:
-        fuelComp['C(gr)'] = (fuels.loc[fuelID]['C']/100)*(1-ash)
-
-    # Grab CHONS content from csv
-    for index, species in enumerate(['H', 'O', 'N', 'S']):
-        if pd.isnull(fuels.loc[fuelID][species]):
-            fuelComp[species] = 0
-        else:
-            fuelComp[species] = (fuels.loc[fuelID][species]/100)*(1-ash)
-    
-    # Grab Cl content from csv
-    if pd.isnull(fuels.loc[fuelID]['Cl']):
-        fuelComp['CL'] = 0
-    else:
-        fuelComp['CL'] = (fuels.loc[fuelID]['Cl']/100)*(1-ash)
-    
-    # Fixed carbon value is stored as C(gr)
-    #fuelComp['C(gr)'] = FC
-
-    ashCompos = ashComp(fuelID)
-
-    # Grab a list of species names from pp
-    # speciesList = list(pp.i_inv.values())
+    for index, species in enumerate(["C(gr)", "H", "O", "N", "S", "CL"]):
+        fuelComp[species] = ult[index]
 
     for index, species in enumerate(['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 
     'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']):
         fuelComp[species] = ashCompos[index]*ash
-
-    # Any remaining mass is assumed to be fixed carbon (??) (ASK PROF)
-    #fuelComp['C(gr)'] += 1 - sum(fuelComp.values())
 
     # Normalize each fuel composition
     s = sum(fuelComp.values())
@@ -226,6 +305,129 @@ def fuelComp(fuelID):
         fuelComp[key] = value/s
 
     return fuelComp
+
+def fuelComp2(ash, ult, ashCompos):
+    '''
+    Get the full mass composition for the dry fuel.
+    The fuel does not need to be in the database.
+
+    Parameters
+    ----------
+    ash : float
+        Ash fraction of fuel, in dry basis [kg/kg]
+    ult : ndarray
+        Ultimate analysis of fuel, in dry basis [kg/kg]
+    ashCompos : ndarray
+        Composition of ash [kg/kg]
+
+    Returns
+    -------
+    fuelComp : dict
+        A dictionary representing the mass fraction of each species.
+    '''
+
+    fuelComp = {}
+
+    for index, species in enumerate(["C(gr)", "H", "O", "N", "S", "CL"]):
+        fuelComp[species] = ult[index]
+
+    for index, species in enumerate(['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 
+    'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']):
+        fuelComp[species] = ashCompos[index]*ash
+
+    # Normalize each fuel composition
+    s = sum(fuelComp.values())
+    for (key, value) in fuelComp.items():
+        fuelComp[key] = value/s
+
+    return fuelComp
+
+def addToDatabase(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
+    '''
+    Adds a new fuel to the database.
+    The fuel must not be available in the database (file: 'fuels-updated.csv').
+
+    Parameters
+    ----------
+    fuelID : str
+        The fuel ID to be registered in the CSV.
+    Info : dict
+        A dictionary containing identifying information about the fuel.
+        Can contain: "Description", "Type", "Category", "Reference", "Year", "DOI"
+    moist : list
+        Moisture content information (%m/m).
+        [Mbasis, Moisture]
+    prox : list
+        Proximate analysis information (%m/m).
+        [Pbasis, FC, VM, Ash]
+    HV : list
+        Heating values information (MJ/kg).
+        [HHV, LHV]
+    biochem : list
+        Biochemical composition information (%m/m).
+        [Cellulose, Hemicellulose, Lignin]
+    ult : list
+        Ultimate analysis information (%m/m).
+        [Ubasis, C, H, O, N, S, Cl]
+    ashC : list
+        Ash composition information (%m/m of ash).
+        [SiO2, CaO, Al2O3, Fe2O3, Na2O, K2O, MgO, P2O5, TiO2, SO3, Cr2O3]
+    
+    Returns
+    -------
+    None
+    '''
+    # Check if fuelID already exists
+    if fuelID in fuels.index:
+        raise(ValueError("Fuel ID already exists in database."))
+    
+    # Create a new empty row in the CSV
+    fuels.loc[fuelID] = pd.Series(dtype=object)
+    for key, value in Info.items():
+        # Check if key is already a column
+        if key in fuels.columns:
+            fuels.loc[fuelID, key] = value
+    fuels.loc[fuelID,'Mbasis'] = moist[0]
+    fuels.loc[fuelID,'Moisture'] = moist[1]
+    fuels.loc[fuelID,'Pbasis'] = prox[0]
+    fuels.loc[fuelID,'FC'] = prox[1]
+    fuels.loc[fuelID,'VM'] = prox[2]
+    fuels.loc[fuelID,'Ash'] = prox[3]
+    fuels.loc[fuelID,'HHV'] = HV[0]
+    fuels.loc[fuelID,'LHV'] = HV[1]
+    fuels.loc[fuelID,'Cellulose'] = biochem[0]
+    fuels.loc[fuelID,'Hemicellulose'] = biochem[1]
+    fuels.loc[fuelID,'Lignin'] = biochem[2]
+    fuels.loc[fuelID,'Ubasis'] = ult[0]
+    fuels.loc[fuelID,'C'] = ult[1]
+    fuels.loc[fuelID,'H'] = ult[2]
+    fuels.loc[fuelID,'O'] = ult[3]
+    fuels.loc[fuelID,'N'] = ult[4]
+    fuels.loc[fuelID,'S'] = ult[5]
+    fuels.loc[fuelID,'Cl'] = ult[6]
+    fuels.loc[fuelID,'SiO2'] = ashC[0]
+    fuels.loc[fuelID,'CaO'] = ashC[1]
+    fuels.loc[fuelID,'Al2O3'] = ashC[2]
+    fuels.loc[fuelID,'Fe2O3'] = ashC[3]
+    fuels.loc[fuelID,'Na2O'] = ashC[4]
+    fuels.loc[fuelID,'K2O'] = ashC[5]
+    fuels.loc[fuelID,'MgO'] = ashC[6]
+    fuels.loc[fuelID,'P2O5'] = ashC[7]
+    fuels.loc[fuelID,'TiO2'] = ashC[8]
+    fuels.loc[fuelID,'SO3'] = ashC[9]
+    fuels.loc[fuelID,'Cr2O3'] = ashC[10]
+    fuels.to_csv('fuels-updated.csv')
+
+fuelID = "Test"
+Info = {"Description": "Test", "Type": "Test", "Category": "Test", "Reference": "Test", "Year": "Test", "DOI": "Test"}
+moist = ["wb", 1]
+prox = ["wb", 1, 1, 1]
+HV = [1, 1]
+biochem = [1, 1, 1]
+ult = ["wb", 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+ashC = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+addToDatabase(fuelID, Info, moist, prox, HV, biochem, ult, ashC)
 
 def HV(fuelID, type='both', moist=0.0):
     '''
@@ -239,7 +441,7 @@ def HV(fuelID, type='both', moist=0.0):
     type : str
         Either 'HHV', 'LHV' or other
     moist : float
-        The moisture content of the fuel [kg/kg]
+        The moisture content of the fuel, dry basis [kg/kg]
 
     Returns
     -------
