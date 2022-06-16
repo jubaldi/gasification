@@ -232,8 +232,8 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
     totalMoist = moist[0]*(1-blend) + moist[1]*blend
 
     # Create feed
-    inlet = getFeed(fuelBlend, totalMoist, air, stm, airType='ER', stmType='SR')
-    outlet = getFeed(fuelBlend, totalMoist, air, stm, airType='ER', stmType='SR')
+    inlet = getFeed(fuelBlend, totalMoist, air, stm, airType, stmType)
+    outlet = getFeed(fuelBlend, totalMoist, air, stm, airType, stmType)
 
     # Calculate equilibrium
     outlet.T = T
@@ -442,9 +442,9 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     report['O/C'] = OC
     report['H/C'] = HC
 
-    fracs = op.getAmounts(outlet, species, norm=True)
+    gasFracs = op.getAmounts(outlet, species, norm=True, phase='gas')
     for i, s in enumerate(species):
-        report[s] = fracs[i]
+        report[s] = gasFracs[i] # All species must be in gas phase
 
     report['H2/CO'] = op.H2CO(outlet)
     report['CC'] = op.carbonConv(outlet, inlet)*100
@@ -624,12 +624,12 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
 def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR',
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
-     # Defining objective function
+    # Defining objective function
     def error(X):
-        Tquasi, C_avail = X
+        DT, C_avail = X
         err = 0
         predicted = np.zeros(len(species))
-        report = gasifier(fuelID, mass=mass, moist=moist, T=Tquasi, P=P, air=air, 
+        report = gasifier(fuelID, mass=mass, moist=moist, T=T0-DT, P=P, air=air, 
                  stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
@@ -637,9 +637,9 @@ def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         return err
     
     # Applying minimize
-    Tquasi, C_avail = opt.minimize(error, [T0, 0.5]).x
-    sqerr = error([Tquasi, C_avail])
-    return Tquasi, C_avail, sqerr
+    DT, C_avail = opt.minimize(error, [0, 0.5], bounds=[(0, T0), (0, 1)]).x
+    sqerr = error([DT, C_avail])
+    return DT, C_avail, sqerr
 
 # def oneToOne(conditions):
 #     '''

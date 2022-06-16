@@ -97,7 +97,7 @@ def getSpecies(mix, species=[], eps=1e-6):
         i += 1
     return species
 
-def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False):
+def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False, phase='all'):
     '''
     Gets an array of amounts (mole, mass, or fractions) of the given species.
 
@@ -115,6 +115,8 @@ def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False):
         Any values smaller than 'eps' become zero. (default: None)
     mass : boolean
         If True, returns mass amounts [kg]. (default: False, mole amounts [kmol])
+    phase : str
+        Phase of the mixture, for fraction calculation as total amount: 'gas', 'solid', or all. (default: 'gas')
 
     Returns
     -------
@@ -123,6 +125,8 @@ def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False):
     '''
     # Grabbing the total amount [kmol] and H2O content [kmol] for the mixture
     total = sum(mix.species_moles)
+    gas = mix.phase_moles('gas')
+    solid = mix.phase_moles('solid')
     H2Ocontent = mix.species_moles[pp.i['H2O']]
     # Pre-allocating the array
     amounts = np.zeros(len(species))
@@ -134,13 +138,20 @@ def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False):
         for i, v in enumerate(species):
             amounts[i] *= pp.Mw[v]
         total = fs.getFuelMass(mix)
+        # TODO: implement gas mass and solid mass calculations
         H2Ocontent *= pp.Mw['H2O']
     # Subtracting H2O content for dry basis
     if db:
         total -= H2Ocontent
+        gas -= H2Ocontent
     # Normalizing the amounts
     if norm:
-        amounts /= total
+        if phase=='gas':
+            amounts /= gas
+        elif phase=='solid':
+            amounts /= solid
+        else:
+            amounts /= total        
     # Making small values equal to zero
     if eps is not None:
         for j, a in enumerate(amounts):
