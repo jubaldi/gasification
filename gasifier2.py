@@ -564,7 +564,7 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15,
     return report
 
 def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
-                air=0.5, stm=0.0, airType='ER', stmType='SR',
+                air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
     Finds the quasi-equilibrium temperature for a given gasification condition.
@@ -610,7 +610,7 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         err = 0
         predicted = np.zeros(len(species))
         report = gasifier(fuelID, mass=mass, moist=moist, T=T, P=P, air=air, 
-                 stm=stm, airType=airType, stmType=stmType, isot=True, species=species)
+                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
             err += (predicted[i] - experimental[i])**2
@@ -621,23 +621,25 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
     sqerr = error(Tquasi)
     return Tquasi, sqerr
 
-def findC_unav(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
+def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR',
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
-    def error(C_unav):
+     # Defining objective function
+    def error(X):
+        Tquasi, C_avail = X
         err = 0
         predicted = np.zeros(len(species))
-        report = gasifier(fuelID, mass=mass, moist=moist, T=T, P=P, air=air, 
-                 stm=stm, airType=airType, stmType=stmType, isot=True, species=species)
+        report = gasifier(fuelID, mass=mass, moist=moist, T=Tquasi, P=P, air=air, 
+                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
             err += (predicted[i] - experimental[i])**2
         return err
     
     # Applying minimize
-    Tquasi = opt.minimize(error, T0).x[0]
-    sqerr = error(Tquasi)
-    return Tquasi, sqerr
+    Tquasi, C_avail = opt.minimize(error, [T0, 0.5]).x
+    sqerr = error([Tquasi, C_avail])
+    return Tquasi, C_avail, sqerr
 
 # def oneToOne(conditions):
 #     '''
