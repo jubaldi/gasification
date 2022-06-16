@@ -119,7 +119,7 @@ def getFeed(fuelMix, moist=0.0, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     return feed
 
 def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
-                    air=0.5, stm=0.0, airType='ER', stmType='SR'):
+                    air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0):
     '''
     Isothermal gasification calculation for a single fuel in a given condition.
 
@@ -143,6 +143,8 @@ def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
         Either 'ER', 'air' or 'O2' (default: 'ER')
     stmType : str
         Either 'SR' or 'steam' (default: 'SR')
+    C_avail : float
+        Fraction of carbon from total that is available for equilibrium calculations (default: 1.0)
 
     Returns
     -------
@@ -156,6 +158,12 @@ def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     # Create fuel mix
     fuelMix = fs.getFuelMix(fuelID, fuelMass)
 
+    # Separate out unavailable C moles
+    fuelMoles = fuelMix.species_moles
+    unavailable_C_moles = fuelMoles[pp.i["C(gr)"]] * (1 - C_avail)
+    fuelMoles[pp.i["C(gr)"]] *= C_avail
+    fuelMix.species_moles = fuelMoles
+
     # Create feed
     inlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
     outlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
@@ -164,6 +172,11 @@ def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     outlet.T = T
     outlet.P = P
     outlet.equilibrate('TP')
+
+    # Add back unavailable C moles
+    outMoles = outlet.species_moles
+    outMoles[pp.i["C(gr)"]] += unavailable_C_moles
+    outlet.species_moles = outMoles
 
     return outlet, inlet, fuelMix
 
@@ -344,9 +357,8 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
 
     return outlet, inlet, fuelMix
 
-
 def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
-                air=0.5, stm=0.0, airType='ER', stmType='SR', isot=True,
+                air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0, isot=True,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
     Creates a full report of the outputs for a given gasification condition.
@@ -371,6 +383,8 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
         Either 'ER', 'air' or 'O2' (default: 'ER')
     stmType : str
         Either 'SR' or 'steam' (default: 'SR')
+    C_avail : float
+        Fraction of carbon from total that is available for equilibrium calculations (default: 1.0)
     isot : bool
         If True, use isothermal gasification calculation.
     species : list
@@ -384,7 +398,7 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     '''
     if isot:
         # Isothermal gasification
-        outlet, inlet, fuelMix = isotGasification(fuelID, mass, moist, T, P, air, stm, airType, stmType)
+        outlet, inlet, fuelMix = isotGasification(fuelID, mass, moist, T, P, air, stm, airType, stmType, C_avail)
     else:
         raise NotImplementedError('Non-isothermal gasification not yet implemented.')
 
@@ -563,7 +577,7 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
     fuelID : str
         ID of fuel as given by the database (fuels.csv)
     experimental : array
-        Array of measured experimental gas compositions. Must be of same length as species.
+        Array of measured experimental gas compositions (mole fractions). Must be of same length as species.
     mass : float
         The fuel mass [kg] (default: 1.0 kg)
     moist : float
@@ -607,6 +621,23 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
     sqerr = error(Tquasi)
     return Tquasi, sqerr
 
+def findC_unav(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
+                air=0.5, stm=0.0, airType='ER', stmType='SR',
+                species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+    def error(C_unav):
+        err = 0
+        predicted = np.zeros(len(species))
+        report = gasifier(fuelID, mass=mass, moist=moist, T=T, P=P, air=air, 
+                 stm=stm, airType=airType, stmType=stmType, isot=True, species=species)
+        for i, sp in enumerate(species):
+            predicted[i] = report[sp]
+            err += (predicted[i] - experimental[i])**2
+        return err
+    
+    # Applying minimize
+    Tquasi = opt.minimize(error, T0).x[0]
+    sqerr = error(Tquasi)
+    return Tquasi, sqerr
 
 # def oneToOne(conditions):
 #     '''
