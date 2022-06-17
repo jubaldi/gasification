@@ -27,17 +27,26 @@ edited using any spreadsheet editor to add new fuel compounds.
 #==============================================================================
 # import libraries
 #==============================================================================
+import sys
+import cantera as ct
 import numpy as np
 import pandas as pd
 import json
-import pp2 as pp
+import scipy.optimize as opt
 
+sys.path.insert(1, 'e:\\Área de Trabalho\\IC Rodolfo\\gasification\\gasifier')
+
+import pp
+import feedstock as fs
+import gasifier as g
+import outputs as op
+import energy as en
 #==============================================================================
 # special functions
 #==============================================================================
 
 # Create a dataframe from the csv
-with open('fuels-updated.csv','r') as f1:
+with open('data/fuel-data/fuels-updated.csv','r') as f1:
     fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
     f1.close()
 
@@ -49,7 +58,7 @@ myID = fuels.index.values
 # HHV, LHV: read directly
 # C, H, O, N, S, Cl: read directly then divide by 100
 
-with open('ashes.json', 'r') as ashFile:
+with open('data/fuel-data/ashes.json', 'r') as ashFile:
     ashData = json.load(ashFile)
     ashFile.close()
 

@@ -14,15 +14,16 @@ processes. It uses some predefined functions from Cantera package.
 #==============================================================================
 # import libraries/files
 #==============================================================================
-import pp as ppold
-import feedstock as fsold
-import pp2 as pp
-import feedstock2 as fs
-import fuel as fu
+import sys
 import cantera as ct
 import numpy as np
-import scipy.optimize as opt
+import scipy.optimize as opt 
 
+import pp
+import feedstock as fs
+import fuel as fu
+import gasifier as g
+import outputs as op
 #==============================================================================
 # predefine parameters
 #==============================================================================
