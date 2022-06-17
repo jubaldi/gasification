@@ -174,10 +174,11 @@ def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     outlet.equilibrate('TP')
 
     # Add back unavailable C moles
-    outMoles = outlet.species_moles
-    outMoles[pp.i["C(gr)"]] += unavailable_C_moles
-    outlet.species_moles = outMoles
-
+    for stream in [outlet, inlet, fuelMix]:
+        Moles = stream.species_moles
+        Moles[pp.i["C(gr)"]] += unavailable_C_moles
+        stream.species_moles = Moles
+    
     return outlet, inlet, fuelMix
 
 def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15, 
@@ -617,9 +618,8 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         return err
     
     # Applying minimize
-    Tquasi = opt.minimize(error, T0).x[0]
-    sqerr = error(Tquasi)
-    return Tquasi, sqerr
+    Tquasi = opt.minimize(error, T0, bounds=[(0.01, 20000)], method='Nelder-Mead')
+    return Tquasi
 
 def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR',
@@ -637,7 +637,7 @@ def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         return err
     
     # Applying minimize
-    DT, C_avail = opt.minimize(error, [0, 0.5], bounds=[(0, T0), (0, 1)]).x
+    DT, C_avail = opt.minimize(error, [0, 0.5], bounds=[(0, T0), (0, 1)], method='Nelder-Mead').x
     sqerr = error([DT, C_avail])
     return DT, C_avail, sqerr
 
