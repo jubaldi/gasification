@@ -19,7 +19,7 @@ import scipy.optimize as opt
 
 import feedstock as fs
 import fuel as fu
-import gasifier as g
+import gasifier as gs
 import outputs as op
 import energy as en
 #==============================================================================

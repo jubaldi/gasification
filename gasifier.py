@@ -237,7 +237,7 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
     # Calculate equilibrium
     outlet.T = T
     outlet.P = P
-    outlet.equilibrate('TP')
+    outlet.equilibrate('TP', solver='gibbs')
 
     return outlet, inlet, fuelBlend
 
@@ -339,7 +339,7 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
 
     outlet.T = guess
     outlet.P = P
-    outlet.equilibrate('TP')
+    outlet.equilibrate('TP', solver='gibbs')
 
     def residual(Temp):
         outlet.T = Temp
@@ -562,13 +562,14 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15,
 
     return report
 
-def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
+def findDT(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
-    Finds the quasi-equilibrium temperature for a given gasification condition.
+    Finds the quasi-equilibrium temperature difference for a given gasification condition.
     The quasi-equilibrium temperature is the temperature that minimizes the square error of compositions
     when applied to the equilibrium model.
+    The difference DT is the difference between the real and quasi-equilibrium temperature.
     Must be supplied with an array of experimental compositions.
 
     Parameters
@@ -599,16 +600,16 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
 
     Returns
     -------
-    Tquasi : float
-        Quasi-equilibrium temperature [K]
+    DT : float
+        Quasi-equilibrium temperature difference [K]
     sqerr : float
         Sum of square errors.
     '''
     # Defining objective function
-    def error(T):
+    def error(DT):
         err = 0
         predicted = np.zeros(len(species))
-        report = gasifier(fuelID, mass=mass, moist=moist, T=T, P=P, air=air, 
+        report = gasifier(fuelID, mass=mass, moist=moist, T=T0-DT, P=P, air=air, 
                  stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
@@ -616,8 +617,10 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         return err
     
     # Applying minimize
-    Tquasi = opt.minimize(error, T0, bounds=[(0.01, 20000)], method='Nelder-Mead')
-    return Tquasi
+    sol = opt.shgo(error, bounds=[(0, T0-0.01)])
+    DT = sol.x[0]
+    sqerr = error(DT)
+    return DT, sqerr
 
 def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR',
@@ -635,7 +638,7 @@ def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         return err
     
     # Applying minimize
-    DT, C_avail = opt.minimize(error, [0, 0.5], bounds=[(0, T0), (0, 1)], method='Nelder-Mead').x
+    DT, C_avail = opt.shgo(error, bounds=[(0,T0-0.01),(0.01,1)]).x
     sqerr = error([DT, C_avail])
     return DT, C_avail, sqerr
 
