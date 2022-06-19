@@ -562,14 +562,13 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15,
 
     return report
 
-def findDT(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
+def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
     Finds the quasi-equilibrium temperature difference for a given gasification condition.
     The quasi-equilibrium temperature is the temperature that minimizes the square error of compositions
     when applied to the equilibrium model.
-    The difference DT is the difference between the real and quasi-equilibrium temperature.
     Must be supplied with an array of experimental compositions.
 
     Parameters
@@ -600,16 +599,16 @@ def findDT(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
 
     Returns
     -------
-    DT : float
-        Quasi-equilibrium temperature difference [K]
+    Tquasi : float
+        Quasi-equilibrium temperature [K]
     sqerr : float
         Sum of square errors.
     '''
     # Defining objective function
-    def error(DT):
+    def error(t):
         err = 0
         predicted = np.zeros(len(species))
-        report = gasifier(fuelID, mass=mass, moist=moist, T=T0-DT, P=P, air=air, 
+        report = gasifier(fuelID, mass=mass, moist=moist, T=t, P=P, air=air, 
                  stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
@@ -617,10 +616,10 @@ def findDT(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
         return err
     
     # Applying minimize
-    sol = opt.shgo(error, bounds=[(-T0, T0-0.01)])
-    DT = sol.x[0]
-    sqerr = error(DT)
-    return DT, sqerr
+    sol = opt.shgo(error, bounds=[(0.01, T0)])
+    Tquasi = sol.x[0]
+    sqerr = error(Tquasi)
+    return Tquasi, sqerr
 
 def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR',
