@@ -617,7 +617,7 @@ def findDT(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
         return err
     
     # Applying minimize
-    sol = opt.shgo(error, bounds=[(0, T0-0.01)])
+    sol = opt.shgo(error, bounds=[(-T0, T0-0.01)])
     DT = sol.x[0]
     sqerr = error(DT)
     return DT, sqerr
