@@ -237,7 +237,9 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
     # Calculate equilibrium
     outlet.T = T
     outlet.P = P
-    outlet.equilibrate('TP', solver='gibbs')
+
+
+    outlet.equilibrate('TP')
 
     return outlet, inlet, fuelBlend
 

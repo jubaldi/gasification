@@ -98,7 +98,7 @@ def getSpecies(mix, species=[], eps=1e-6):
         i += 1
     return species
 
-def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False, phase='all'):
+def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False, phase='gas'):
     '''
     Gets an array of amounts (mole, mass, or fractions) of the given species.
 

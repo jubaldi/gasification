@@ -46,7 +46,7 @@ import energy as en
 #==============================================================================
 
 # Create a dataframe from the csv
-with open('data/fuel-data/fuels-updated.csv','r') as f1:
+with open('fuels-updated.csv','r') as f1:
     fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
     f1.close()
 
@@ -101,6 +101,8 @@ def moisture(fuelID, basis="db"):
         moist = moist / (1 + moist) # moist is now in wb
     
     return moist
+
+print(moisture('ZhouRice'))
 
 def proximate(fuelID, basis="db"):
     '''
