@@ -163,8 +163,6 @@ def steam(mass, T, P):
     steam.P = P
     return steam
 
-print(steam(1, 300, 1e5).species_moles[pp.i['H2O']])
-
 def getFeed(fuelMix, airMix, O2Mix, steamMix, moist=0.0):
     '''
     Returns an object representing the feed stream of the gasifier.
