@@ -572,19 +572,23 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     if isinstance(T, list):
         T_fuel, T_air, T_steam = T
     else:
-        T_fuel = T
-        T_air = T
-        T_steam = T
+        T_fuel = T_air = T_steam = T
     
-    O2Mix = fs.O2(pureO2Mass, T_air, P)
-    airMix = fs.air(airMass, T_air, P)
-    steamMix = fs.steam(stmMass, T_steam, P)
+    if isinstance(P, list):
+        P_fuel, P_air, P_steam = P
+    else:
+        P_fuel = P_air = P_steam = P
+    
+    O2Mix = fs.O2(pureO2Mass, T_air, P_air)
+    airMix = fs.air(airMass, T_air, P_air)
+    steamMix = fs.steam(stmMass, T_steam, P_steam)
+    fuelMix.T = T_fuel
+    fuelMix.P = P_fuel
 
     feed = fs.getFeed(fuelMix, airMix, O2Mix, steamMix, moist)
 
     if isot:
         outlet = isotGasification(feed, T, P, C_avail)
-  
     else:
         raise NotImplementedError('Non-isothermal gasification not yet implemented.')
 
