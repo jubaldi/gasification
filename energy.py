@@ -21,9 +21,6 @@ import scipy.optimize as opt
 
 import pp
 import feedstock as fs
-import fuel as fu
-import gasifier as g
-import outputs as op
 #==============================================================================
 # predefine parameters
 #==============================================================================

@@ -27,9 +27,6 @@ import scipy.optimize as opt
 
 import pp
 import fuel as fu
-import gasifier as g
-import outputs as op
-import energy as en
 #==============================================================================
 def getFuelMix(fuelID, fuelMass):
     '''
@@ -66,25 +63,25 @@ def getFuelMix(fuelID, fuelMass):
     return fuelMix
 
 
-def getFuelMass(fuelMix):
+def getMass(mix):
     '''
-    Calculate the mass of the given fuel mixture.
+    Calculate the mass of the given mixture.
 
     Parameters
     ----------
-    fuelMix : Cantera 'Mixture' object
-        The fuel mixture object.
+    mix : Cantera 'Mixture' object
+        The mixture object.
 
     Returns
     -------
-    fuelMass : float
-        The fuel mass [kg]
+    mass : float
+        Mass of mixture [kg]
     '''
-    fuelMass = 0
-    for index, species in enumerate(fuelMix.species_names):
-        fuelMass += fuelMix.species_moles[index]*pp.Mw[species] # kg
+    mass = 0
+    for index, species in enumerate(mix.species_names):
+        mass += mix.species_moles[index]*pp.Mw[species] # kg
 
-    return fuelMass
+    return mass
 
 def Mw(fuelMix):
     '''

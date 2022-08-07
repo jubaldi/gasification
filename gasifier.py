@@ -62,7 +62,7 @@ def getFeed(fuelMix, moist=0.0, air=0.5, stm=0.0, airType='ER', stmType='SR'):
 
     fuelMoles = fuelMix.species_moles # kmoles for each species
 
-    totalFuelMass = fs.getFuelMass(fuelMix) # total fuel mass in kg
+    totalFuelMass = fs.getMass(fuelMix) # total fuel mass in kg
 
     moistMass = moist * totalFuelMass # mass of moisture in kg
     moistMoles = moistMass / pp.Mw['H2O'] # moles of moisture
@@ -94,9 +94,12 @@ def getFeed(fuelMix, moist=0.0, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     else:
         raise ValueError('Invalid air type')
 
-    airO2Moles = 0.23211606*airMass/pp.Mw['O2']
-    airN2Moles = 0.75507754*airMass/pp.Mw['N2']
-    airArMoles = 0.01280640*airMass/pp.Mw['Ar']
+    # airO2Moles = 0.23211606*airMass/pp.Mw['O2']
+    # airN2Moles = 0.75507754*airMass/pp.Mw['N2']
+    # airArMoles = 0.01280640*airMass/pp.Mw['Ar']
+    airO2Moles = 0.21*airMass/pp.Mw_air
+    airN2Moles = 0.78*airMass/pp.Mw_air
+    airArMoles = 0.01*airMass/pp.Mw_air
 
     pureO2Moles = pureO2Mass / pp.Mw['O2'] # moles of pure O2
 
@@ -115,6 +118,114 @@ def getFeed(fuelMix, moist=0.0, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     feed.species_moles = feedMoles
 
     return feed
+
+def O2(mass, T, P):
+    '''
+    Returns a stream of pure O2 with given conditions.
+
+    Parameters
+    ----------
+    mass : float
+        Mass amount of O2 [kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [Pa]
+    
+    Returns
+    -------
+    O2 : Cantera 'Mixture' object
+        Object representing the pure O2 stream.
+    '''
+    O2 = pp.mix()
+    O2.species_moles[pp.i['O2']] = mass / pp.Mw['O2']
+    O2.T = T
+    O2.P = P
+    return O2
+
+def air(mass, T, P):
+    '''
+    Returns a stream of air with given conditions.
+
+    Parameters
+    ----------
+    mass : float
+        Mass amount of air [kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [Pa]
+    
+    Returns
+    -------
+    air : Cantera 'Mixture' object
+        Object representing the air stream.
+    '''
+    air = pp.mix()
+    air.species_moles[pp.i['O2']] = 0.21*mass/pp.Mw_air
+    air.species_moles[pp.i['N2']] = 0.78*mass/pp.Mw_air
+    air.species_moles[pp.i['Ar']] = 0.01*mass/pp.Mw_air
+    air.T = T
+    air.P = P
+    return air
+
+def steam(mass, T, P):
+    '''
+    Returns a stream of steam (H2O) with given conditions.
+
+    Parameters
+    ----------
+    mass : float
+        Mass amount of H2O [kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [Pa]
+    
+    Returns
+    -------
+    steam : Cantera 'Mixture' object
+        Object representing the steam stream.
+    '''
+    steam = pp.mix()
+    steam.species_moles[pp.i['H2O']] = mass / pp.Mw['H2O']
+    steam.T = T
+    steam.P = P
+    return steam
+
+# def getFeed(fuelMix, air, O2, steam, moist=0.0):
+#     '''
+#     Returns an object representing the feed stream of the gasifier.
+#     The feed stream consists of dry fuel, moisture, and gasifying agent (O2/air/steam).
+
+#     Parameters
+#     ----------
+#     fuelMix : Cantera 'Mixture' object
+#         Object containing the mole amount of each species in the dry fuel.
+#     air : Cantera 'Mixture' object
+#         Object representing the air stream.
+#     O2 : Cantera 'Mixture' object
+#         Object representing the pure O2 stream.
+#     steam : Cantera 'Mixture' object
+#         Object representing the steam stream.
+#     moist : float
+#         Moisture content of fuel [kg/kg] in dry basis (default value is zero)
+    
+#     Returns
+#     -------
+#     feed : Cantera 'Mixture' object
+#         Object representing the mixture of phases in the feedstock.
+#     '''
+#     feed = pp.mix()
+#     feed.species_moles = fuelMix.species_moles
+#     feed.species_moles[pp.i['H2O']] += moist * fs.getMass(fuelMix) / pp.Mw['H2O']
+#     feed.species_moles[pp.i['H2O']] += steam.species_moles[pp.i['H2O']]
+#     feed.species_moles[pp.i['O2']] += O2.species_moles[pp.i['O2']]
+#     feed.species_moles[pp.i['O2']] += air.species_moles[pp.i['O2']]
+#     feed.species_moles[pp.i['N2']] += air.species_moles[pp.i['N2']]
+#     feed.species_moles[pp.i['Ar']] += air.species_moles[pp.i['Ar']]
+
+#     return feed
 
 def isotGasification(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
                     air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0):
@@ -243,7 +354,7 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
 
     return outlet, inlet, fuelBlend
 
-def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
+def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
                         air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0, guess=None):
     '''
     Non-isothermal gasification calculation for a single fuel in a given condition.
@@ -253,7 +364,7 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
     ----------
     fuelID : str
         ID of fuel as given by the database (fuels.csv)
-    mass : float
+    fuelMass : float
         The fuel mass [kg] (default: 1.0 kg)
     moist : float
         Moisture content of fuel [kg/kg] in dry basis (default value is zero)
@@ -284,7 +395,7 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
     if guess == None: guess = pp.To
 
     # Create fuel mix
-    fuelMix = fs.getFuelMix(fuelID, mass)
+    fuelMix = fs.getFuelMix(fuelID, fuelMass)
     fuelMix.T = guess
     fuelMix.P = P
 
@@ -296,7 +407,7 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
     HHV = fu.HV(fuelID, type='HHV', moist=moist)
     Hfo = en.hFormation(fuelID, HHV)
 
-    moistMoles = moist*mass/pp.Mw['H2O']
+    moistMoles = moist*fuelMass/pp.Mw['H2O']
 
     if stmType == 'SR':
         stmMass = fs.SRtosteam(fuelMix, stm)
@@ -358,7 +469,7 @@ def NonIsotGasification(fuelID, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
 
     return outlet, inlet, fuelMix
 
-def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
+def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0, isot=True,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
@@ -368,14 +479,16 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     ----------
     fuelID : str
         ID of fuel as given by the database (fuels.csv)
-    mass : float
-        The fuel mass [kg] (default: 1.0 kg)
+    fuelMass : float
+        Dry fuel mass [kg] (default: 1.0 kg)
     moist : float
         Moisture content of fuel [kg/kg] in dry basis (default value is zero)
-    T : float
-        Temperature [K] (default: 1273.15 K)
-    P : float
+    T : float | list
+        Initial temperature [K] (default: 1273.15 K)
+        If list: [T_fuel, T_air, T_steam]
+    P : float | list
         Pressure [Pa] (default: 101325 Pa)
+        If list: [P_fuel, P_air, P_steam]
     air : float
         Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
     stm : float
@@ -399,7 +512,7 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     '''
     if isot:
         # Isothermal gasification
-        outlet, inlet, fuelMix = isotGasification(fuelID, mass, moist, T, P, air, stm, airType, stmType, C_avail)
+        outlet, inlet, fuelMix = isotGasification(fuelID, fuelMass, moist, T, P, air, stm, airType, stmType, C_avail)
     else:
         raise NotImplementedError('Non-isothermal gasification not yet implemented.')
 
@@ -432,7 +545,7 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
 
     report['FuelID'] = fuelID
     report['Fuel'] = fu.fuels.loc[fuelID]['Description']
-    report['Fuel mass'] = mass
+    report['Fuel mass'] = fuelMass
     report['Moisture'] = moist
     report['T'] = T - 273.15
     report['P'] = P/ct.one_atm
@@ -449,13 +562,13 @@ def gasifier(fuelID, mass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
 
     report['H2/CO'] = op.H2CO(outlet)
     report['CC'] = op.carbonConv(outlet, inlet)*100
-    report['Y'] = op.gasYield(outlet, basis='vol')/mass
-    report['HHV'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=mass)
+    report['Y'] = op.gasYield(outlet, basis='vol')/fuelMass
+    report['HHV'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=fuelMass)
 
     fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
     report['CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)*100  
 
-    return report
+    return report, inlet, outlet, fuelMix
 
 def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15, 
                 P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR', isot=True,
@@ -564,7 +677,7 @@ def cogasifier(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15,
 
     return report
 
-def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
+def findTquasi(fuelID, experimental, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
@@ -610,8 +723,8 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
     def error(t):
         err = 0
         predicted = np.zeros(len(species))
-        report = gasifier(fuelID, mass=mass, moist=moist, T=t, P=P, air=air, 
-                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
+        report = gasifier(fuelID, fuelMass=fuelMass, moist=moist, T=t, P=P, air=air, 
+                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)[0]
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
             err += (predicted[i] - experimental[i])**2
@@ -623,7 +736,7 @@ def findTquasi(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
     sqerr = error(Tquasi)
     return Tquasi, sqerr
 
-def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
+def findParams(fuelID, experimental, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm, 
                 air=0.5, stm=0.0, airType='ER', stmType='SR',
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     # Defining objective function
@@ -631,8 +744,8 @@ def findParams(fuelID, experimental, mass=1.0, moist=0.0, T0=1273.15, P=ct.one_a
         DT, C_avail = X
         err = 0
         predicted = np.zeros(len(species))
-        report = gasifier(fuelID, mass=mass, moist=moist, T=T0-DT, P=P, air=air, 
-                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)
+        report = gasifier(fuelID, fuelMass=fuelMass, moist=moist, T=T0-DT, P=P, air=air, 
+                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)[0]
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
             err += (predicted[i] - experimental[i])**2

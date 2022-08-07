@@ -20,9 +20,6 @@ import numpy as np
 
 import pp
 import feedstock as fs
-import fuel as fu
-import gasifier as g
-import energy as en
 #==============================================================================
 # predefine parameters
 #==============================================================================
@@ -138,7 +135,7 @@ def getAmounts(mix, species, norm=False, db=False, eps=None, mass=False, phase='
     if mass:
         for i, v in enumerate(species):
             amounts[i] *= pp.Mw[v]
-        total = fs.getFuelMass(mix)
+        total = fs.getMass(mix)
         # TODO: implement gas mass and solid mass calculations
         H2Ocontent *= pp.Mw['H2O']
     # Subtracting H2O content for dry basis

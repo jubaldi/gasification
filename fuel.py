@@ -36,11 +36,6 @@ import scipy.optimize as opt
 
 sys.path.insert(1, 'e:\\Área de Trabalho\\IC Rodolfo\\gasification\\gasifier')
 
-import pp
-import feedstock as fs
-import gasifier as g
-import outputs as op
-import energy as en
 #==============================================================================
 # special functions
 #==============================================================================
@@ -101,8 +96,6 @@ def moisture(fuelID, basis="db"):
         moist = moist / (1 + moist) # moist is now in wb
     
     return moist
-
-print(moisture('ZhouRice'))
 
 def proximate(fuelID, basis="db"):
     '''
