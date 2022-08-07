@@ -83,6 +83,127 @@ def getMass(mix):
 
     return mass
 
+def O2(mass, T, P):
+    '''
+    Returns a stream of pure O2 with given conditions.
+
+    Parameters
+    ----------
+    mass : float
+        Mass amount of O2 [kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [Pa]
+    
+    Returns
+    -------
+    O2 : Cantera 'Mixture' object
+        Object representing the pure O2 stream.
+    '''
+    O2 = pp.mix()
+    moles = O2.species_moles
+    moles[pp.i['O2']] = mass / pp.Mw['O2']
+    O2.species_moles = moles
+    O2.T = T
+    O2.P = P
+    return O2
+
+def air(mass, T, P):
+    '''
+    Returns a stream of air with given conditions.
+
+    Parameters
+    ----------
+    mass : float
+        Mass amount of air [kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [Pa]
+    
+    Returns
+    -------
+    air : Cantera 'Mixture' object
+        Object representing the air stream.
+    '''
+    air = pp.mix()
+    moles = air.species_moles
+    moles[pp.i['O2']] = 0.21*mass/pp.Mw_air
+    moles[pp.i['N2']] = 0.78*mass/pp.Mw_air
+    moles[pp.i['Ar']] = 0.01*mass/pp.Mw_air
+    air.species_moles = moles
+    air.T = T
+    air.P = P
+    return air
+
+def steam(mass, T, P):
+    '''
+    Returns a stream of steam (H2O) with given conditions.
+
+    Parameters
+    ----------
+    mass : float
+        Mass amount of H2O [kg]
+    T : float
+        Temperature [K]
+    P : float
+        Pressure [Pa]
+    
+    Returns
+    -------
+    steam : Cantera 'Mixture' object
+        Object representing the steam stream.
+    '''
+    steam = pp.mix()
+    moles = steam.species_moles
+    moles[pp.i['H2O']] = mass / pp.Mw['H2O']
+    steam.species_moles = moles
+    steam.T = T
+    steam.P = P
+    return steam
+
+print(steam(1, 300, 1e5).species_moles[pp.i['H2O']])
+
+def getFeed(fuelMix, airMix, O2Mix, steamMix, moist=0.0):
+    '''
+    Returns an object representing the feed stream of the gasifier.
+    The feed stream consists of dry fuel, moisture, and gasifying agent (O2/air/steam).
+
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        Object containing the mole amount of each species in the dry fuel.
+    air : Cantera 'Mixture' object
+        Object representing the air stream.
+    O2 : Cantera 'Mixture' object
+        Object representing the pure O2 stream.
+    steam : Cantera 'Mixture' object
+        Object representing the steam stream.
+    moist : float
+        Moisture content of fuel [kg/kg] in dry basis (default value is zero)
+    
+    Returns
+    -------
+    feed : Cantera 'Mixture' object
+        Object representing the mixture of phases in the feedstock.
+    '''
+    feed = pp.mix()
+    moles = fuelMix.species_moles
+    moles[pp.i['H2O']] += moist * getMass(fuelMix) / pp.Mw['H2O']
+
+    moles[pp.i['H2O']] += steamMix.species_moles[pp.i['H2O']]
+
+    moles[pp.i['O2']] += O2Mix.species_moles[pp.i['O2']]
+
+    moles[pp.i['O2']] += airMix.species_moles[pp.i['O2']]
+    moles[pp.i['N2']] += airMix.species_moles[pp.i['N2']]
+    moles[pp.i['Ar']] += airMix.species_moles[pp.i['Ar']]
+
+    feed.species_moles = moles
+
+    return feed
+
 def Mw(fuelMix):
     '''
     Calculates the molar weight of the fuel mixture.
