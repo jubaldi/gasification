@@ -225,6 +225,35 @@ def Mw(fuelMix):
 
     return Mw
 
+# def stoichO2(fuelMix):
+    '''
+    Calculates the stoichometric amount of oxygen moles required to
+    combust the fuel completely. This is required to calculate the
+    equivalence ratio (ER).
+
+    Parameters
+    ----------
+    fuelMix : Cantera 'Mixture' object
+        The fuel mixture object.
+
+    Returns
+    -------
+    stoichO2frac : float
+        The stoichometric amount of O2 in moles by the fuel moles [kmol/kmol]
+    '''
+
+#     totalMoles = sum(fuelMix.species_moles)
+
+#     m = lambda e: fuelMix.element_moles(e)
+#     stoicO2Mole = (m('C') + 0.25*m('H') - 0.5*m('O') + m('S') - 0.5*m('Cl') +
+#                     + m('Si') + 0.5*m('Ca') + 1.5*m('Al') +
+#                     + 1.5*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') +
+#                     + 2.5*m('P') + m('Ti') + 1.5*m('Cr'))
+
+#     stoichO2frac = stoicO2Mole / totalMoles
+
+#     return stoichO2frac
+
 def stoichO2(fuelMix):
     '''
     Calculates the stoichometric amount of oxygen moles required to
@@ -245,11 +274,11 @@ def stoichO2(fuelMix):
     totalMoles = sum(fuelMix.species_moles)
 
     m = lambda e: fuelMix.element_moles(e)
-    stoicO2Mole = (m('C') + 0.25*m('H') - 0.5*m('O') + m('S') - 0.5*m('Cl') +
-                    + m('Si') + 0.5*m('Ca') + 1.5*m('Al') +
-                    + 1.5*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') +
-                    + 2.5*m('P') + m('Ti') + 1.5*m('Cr'))
-
+    stoicO2Mole = (m('C') + 0.25*m('H') - 0.5*m('O') + m('S') + 0.5*m('Cl') +
+                    + m('Si') + 0.5*m('Ca') + 0.75*m('Al') +
+                    + 0.75*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') +
+                    + 1.25*m('P') + m('Ti') + 0.75*m('Cr'))
+    # EDITED 31-10-22: Changed some coefficients I thought were wrong (Nícolas)
     stoichO2frac = stoicO2Mole / totalMoles
 
     return stoichO2frac

@@ -182,7 +182,57 @@ def getFeed(fuelMix, moist=0.0, air=0.5, stm=0.0, airType='ER', stmType='SR'):
     
 #     return outlet, inlet, fuelMix
 
-def isotGasification(feed, T=1273.15, P=ct.one_atm, C_avail=1.0):
+def isotGasification(feed, T=1273.15, P=ct.one_atm, C=1.0, CH4=0.0):
+    '''
+    Isothermal gasification calculation for a single fuel in a given condition.
+
+    Parameters
+    ----------
+    feed : Cantera 'Mixture' object
+        Object representing the feed mixture.
+    T : float
+        Temperature [K] (default: 1273.15 K)
+    P : float
+        Pressure [Pa] (default: 101325 Pa)
+    C : float
+        Fraction of carbon from total that is available for equilibrium calculations (default: 1.0)
+    CH4 : float
+        Fraction of carbon from total that is directly converted to CH4 without equilibrium calculations (default: 0.0)
+
+    Returns
+    -------
+    outlet : Cantera 'Mixture' object
+        Object representing the mixture at equilibrium.
+    '''
+
+    C_avail = C - CH4
+    H_avail = 1 - 4*CH4*feed.element_moles('H')/feed.element_moles('C')
+    # Separate out unavailable C moles
+    moles = feed.species_moles
+    initial_C_moles = moles[pp.i['C(gr)']]
+    initial_H_moles = moles[pp.i['H']]
+    moles[pp.i['C(gr)']] *= C_avail
+    moles[pp.i['H']] *= H_avail
+    feed.species_moles = moles
+
+    # Initialize outlet stream
+    outlet = pp.mix()
+    outlet.species_moles = feed.species_moles
+
+    # Calculate equilibrium
+    outlet.T = T
+    outlet.P = P
+    outlet.equilibrate('TP')
+
+    # Add back unavailable C moles
+    out_moles = outlet.species_moles
+    out_moles[pp.i['C(gr)']] += initial_C_moles * (1-C)
+    out_moles[pp.i['CH4']] += initial_C_moles * CH4
+    outlet.species_moles = out_moles
+    
+    return outlet
+
+# def isotGasification(feed, T=1273.15, P=ct.one_atm, C_avail=1.0):
     '''
     Isothermal gasification calculation for a single fuel in a given condition.
 
@@ -202,6 +252,7 @@ def isotGasification(feed, T=1273.15, P=ct.one_atm, C_avail=1.0):
     outlet : Cantera 'Mixture' object
         Object representing the mixture at equilibrium.
     '''
+
     # Separate out unavailable C moles
     moles = feed.species_moles
     unavailable_C_moles = moles[pp.i['C(gr)']] * (1 - C_avail)
@@ -286,8 +337,123 @@ def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=127
 
     return outlet, inlet, fuelBlend
 
+# def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
+#                         air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0, guess=None):
+#     '''
+#     Non-isothermal gasification calculation for a single fuel in a given condition.
+#     Initial fuel temperature is always 25°C (298.15 K, T_ref).
+
+#     Parameters
+#     ----------
+#     fuelID : str
+#         ID of fuel as given by the database (fuels.csv)
+#     fuelMass : float
+#         The fuel mass [kg] (default: 1.0 kg)
+#     moist : float
+#         Moisture content of fuel [kg/kg] in dry basis (default value is zero)
+#     T0 : float
+#         Initial air and steam temperature [K] (default: 1273.15 K)
+#     P : float
+#         Pressure [Pa] (default: 101325 Pa)
+#     air : float
+#         Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+#     stm : float
+#         Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+#     airType : str
+#         Either 'ER', 'air' or 'O2' (default: 'ER')
+#     stmType : str
+#         Either 'SR' or 'steam' (default: 'SR')
+#     heatLoss : float
+#         Amount of heat lost to the environment [J]
+
+#     Returns
+#     -------
+#     outlet : Cantera 'Mixture' object
+#         Object representing the mixture at equilibrium.
+#     inlet : Cantera 'Mixture' object
+#         Object representing the feed mixture.
+#     fuelMix : Cantera 'Mixture' object
+#         Object representing the dry fuel mixture.
+#     '''
+#     if guess == None: guess = pp.To
+
+#     # Create fuel mix
+#     fuelMix = fs.getFuelMix(fuelID, fuelMass)
+#     fuelMix.T = guess
+#     fuelMix.P = P
+
+#     # Create feed
+#     inlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
+#     outlet = getFeed(fuelMix, moist, air, stm, airType, stmType)
+
+#     fuelMoles = sum(fuelMix.species_moles)
+#     HHV = fu.HV(fuelID, type='HHV', moist=moist)
+#     Hfo = en.hFormation(fuelID, HHV) # J/kg
+
+#     moistMoles = moist*fuelMass/pp.Mw['H2O']
+
+#     if stmType == 'SR':
+#         stmMass = fs.SRtosteam(fuelMix, stm)
+#         SR = stm
+#     elif stmType == 'steam':
+#         stmMass = stm
+#         SR = fs.steamtoSR(fuelMix, stm)
+#     else:
+#         raise ValueError('Invalid steam type')
+
+#     steamMoles = stmMass / pp.Mw['H2O'] # moles of steam
+    
+#     if airType == 'ER':
+#         airMass = fs.ERtoair(fuelMix, air)
+#         pureO2Mass = 0
+#         ER = air
+#     elif airType == 'air':
+#         airMass = air
+#         pureO2Mass = 0
+#         ER = fs.airtoER(fuelMix, air)
+#     elif airType == 'O2':
+#         airMass = 0
+#         pureO2Mass = air
+#         ER = fs.airtoER(fuelMix, air=0.0, O2=air)
+#     else:
+#         raise ValueError('Invalid air type')
+
+#     airO2Moles = 0.23211606*airMass/pp.Mw['O2']
+#     airN2Moles = 0.75507754*airMass/pp.Mw['N2']
+#     airArMoles = 0.01280640*airMass/pp.Mw['Ar']
+
+#     pureO2Moles = pureO2Mass / pp.Mw['O2'] # moles of pure O2
+
+#     O2Moles = airO2Moles + pureO2Moles # total moles of O2
+#     totalMoles = fuelMoles + moistMoles + O2Moles + airN2Moles + airArMoles + steamMoles
+
+#     inlet_H = (fuelMoles*Hfo + moistMoles*(pp.Hfo['H2O(l)'] + pp.H_vap) +
+#                 + O2Moles*pp.Hfo['O2'] + airN2Moles*pp.Hfo['N2'] + airArMoles*pp.Hfo['Ar'] +
+#                 + steamMoles*pp.H_vap)/totalMoles # J/kmol
+    
+#     desired_H = inlet_H*(1 - heatLoss) # J/kmol
+
+#     outlet.T = guess
+#     outlet.P = P
+#     outlet.equilibrate('TP', solver='gibbs')
+
+#     def residual(Temp):
+#         outlet.T = Temp
+#         outlet.P = P
+#         outlet_H = en.get_h_cp(outlet)
+#         return (outlet_H - desired_H)**2
+#     # estimate equilibrium temperature
+#     res = opt.minimize_scalar(residual,method='bounded',bounds=(200,6000),
+#                                 bracket=(residual(1200),residual(3000)))
+#     # estimate equilibrium product composition
+#     Teq = res.x
+#     outlet.T = Teq
+#     outlet.P = P
+
+#     return outlet, inlet, fuelMix
+
 def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_atm,
-                        air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0, guess=None):
+                        air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.0, guess=pp.To):
     '''
     Non-isothermal gasification calculation for a single fuel in a given condition.
     Initial fuel temperature is always 25°C (298.15 K, T_ref).
@@ -324,8 +490,6 @@ def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_at
     fuelMix : Cantera 'Mixture' object
         Object representing the dry fuel mixture.
     '''
-    if guess == None: guess = pp.To
-
     # Create fuel mix
     fuelMix = fs.getFuelMix(fuelID, fuelMass)
     fuelMix.T = guess
@@ -337,7 +501,11 @@ def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_at
 
     fuelMoles = sum(fuelMix.species_moles)
     HHV = fu.HV(fuelID, type='HHV', moist=moist)
-    Hfo = en.hFormation(fuelID, HHV)
+    Mw = fs.Mw(fuelMix)
+    # Hfo = en.hFormation(fuelID, HHV) # J/kg
+    # CORRELATION (Rodriguez-Alejandro et al., 2016):
+    n2 = fs.OHCratio(fuelMix)[1]
+    Hfo = (-190.3-1407*n2)*2.326*Mw
 
     moistMoles = moist*fuelMass/pp.Mw['H2O']
 
@@ -376,30 +544,51 @@ def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_at
     O2Moles = airO2Moles + pureO2Moles # total moles of O2
     totalMoles = fuelMoles + moistMoles + O2Moles + airN2Moles + airArMoles + steamMoles
 
-    inlet_H = (fuelMoles*Hfo + moistMoles*(pp.Hfo['H2O(l)'] + pp.H_vap) +
-                + O2Moles*pp.Hfo['O2'] + airN2Moles*pp.Hfo['N2'] + airArMoles*pp.Hfo['Ar'] +
-                + steamMoles*pp.H_vap)/totalMoles # J/kmol
-    
-    desired_H = inlet_H*(1 - heatLoss) # J/kmol
+    # Create O2 mix
+    O2mix = pp.mix()
+    O2mix.species_moles[pp.i['O2']] = pureO2Moles
+    O2mix.T = T0
+    O2mix.P = P
 
-    outlet.T = guess
-    outlet.P = P
-    outlet.equilibrate('TP', solver='gibbs')
+    # Create air mix
+    airMix = pp.mix()
+    airMix.species_moles[pp.i['N2']] = airN2Moles
+    airMix.species_moles[pp.i['O2']] = airO2Moles
+    airMix.species_moles[pp.i['Ar']] = airArMoles
+    airMix.T = T0
+    airMix.P = P
 
-    def residual(Temp):
-        outlet.T = Temp
-        outlet.P = P
-        outlet_H = en.get_h_cp(outlet)
-        return (outlet_H - desired_H)**2
-    # estimate equilibrium temperature
-    res = opt.minimize_scalar(residual,method='bounded',bounds=(200,6000),
-                                bracket=(residual(1200),residual(3000)))
-    # estimate equilibrium product composition
-    Teq = res.x
-    outlet.T = Teq
-    outlet.P = P
+    # Create H2O mix
+    steamMix = pp.mix()
+    steamMix.species_moles[pp.i['H2O']] = steamMoles
+    steamMix.T = T0
+    steamMix.P = P
 
-    return outlet, inlet, fuelMix
+    inlet_H = (fuelMoles*Hfo + moistMoles*(pp.Hfo['H2O(l)'])
+                + pureO2Moles*en.get_h_cp(O2mix)
+                + (airO2Moles+airN2Moles+airArMoles)*en.get_h_cp(airMix)
+                + steamMoles*en.get_h_cp(steamMix)) # J
+    print(inlet_H)
+    # desired_H = inlet_H*(1 - heatLoss) # J
+
+    # outlet.T = guess
+    # outlet.P = P
+    # outlet.equilibrate('TP', solver='gibbs')
+
+    # def residual(Temp):
+    #     outlet.T = Temp
+    #     outlet.P = P
+    #     outlet_H = en.get_h_cp(outlet)
+    #     return (outlet_H - desired_H)**2
+    # # estimate equilibrium temperature
+    # res = opt.minimize_scalar(residual,method='bounded',bounds=(200,6000),
+    #                             bracket=(residual(1200),residual(3000)))
+    # # estimate equilibrium product composition
+    # Teq = res.x
+    # outlet.T = Teq
+    # outlet.P = P
+
+    # return outlet, inlet, fuelMix
 
 def NonIsotGasification2(fuelID, O2Mix, airMix, stmMix, fuelMass=1.0, moist=0.0, P=ct.one_atm, C_avail=1.0, heatLoss=0.0, guess=pp.To):
     '''
@@ -604,8 +793,128 @@ def NonIsotGasification2(fuelID, O2Mix, airMix, stmMix, fuelMass=1.0, moist=0.0,
 
 #     return report, inlet, outlet, fuelMix
 
+# def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
+#                 air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0, isot=True,
+#                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
+#     '''
+#     Creates a full report of the outputs for a given gasification condition.
+
+#     Parameters
+#     ----------
+#     fuelID : str
+#         ID of fuel as given by the database (fuels.csv)
+#     fuelMass : float
+#         Dry fuel mass [kg] (default: 1.0 kg)
+#     moist : float
+#         Moisture content of fuel [kg/kg] in dry basis (default value is zero)
+#     T : float | list
+#         Initial temperature [K] (default: 1273.15 K)
+#         If list: [T_fuel, T_air, T_steam]
+#     P : float | list
+#         Pressure [Pa] (default: 101325 Pa)
+#         If list: [P_fuel, P_air, P_steam]
+#     air : float
+#         Mass amount of air [kg], equivalence ratio ER [kmol/kmol] or mass amount of pure O2 [kg] (default: ER=0.5)
+#     stm : float
+#         Mass amount of steam [kg] or steam to carbon ratio SR [kmol/kmol] (default: SR=0.0)
+#     airType : str
+#         Either 'ER', 'air' or 'O2' (default: 'ER')
+#     stmType : str
+#         Either 'SR' or 'steam' (default: 'SR')
+#     C_avail : float
+#         Fraction of carbon from total that is available for equilibrium calculations (default: 1.0)
+#     isot : bool
+#         If True, use isothermal gasification calculation.
+#     species : list
+#         List of species to be included in the report.
+#         (default: ['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O'])
+
+#     Returns
+#     -------
+#     report : dict
+#         Dictionary containing the report.
+#     '''
+#     fuelMix = fs.getFuelMix(fuelID, fuelMass)
+
+#     if stmType == 'SR':
+#         stmMass = fs.SRtosteam(fuelMix, stm)
+#         SR = stm
+#     elif stmType == 'steam':
+#         stmMass = stm
+#         SR = fs.steamtoSR(fuelMix, stm)
+#     else:
+#         raise ValueError('Invalid steam type')
+    
+#     if airType == 'ER':
+#         airMass = fs.ERtoair(fuelMix, air)
+#         pureO2Mass = 0
+#         ER = air
+#     elif airType == 'air':
+#         airMass = air
+#         pureO2Mass = 0
+#         ER = fs.airtoER(fuelMix, air)
+#     elif airType == 'O2':
+#         airMass = 0
+#         pureO2Mass = air
+#         ER = fs.airtoER(fuelMix, air=0.0, O2=air)
+#     else:
+#         raise ValueError('Invalid air type')
+    
+#     if isinstance(T, list):
+#         T_fuel, T_air, T_steam = T
+#     else:
+#         T_fuel = T_air = T_steam = T
+    
+#     if isinstance(P, list):
+#         P_fuel, P_air, P_steam = P
+#     else:
+#         P_fuel = P_air = P_steam = P
+    
+#     O2Mix = fs.O2(pureO2Mass, T_air, P_air)
+#     airMix = fs.air(airMass, T_air, P_air)
+#     steamMix = fs.steam(stmMass, T_steam, P_steam)
+#     fuelMix.T = T_fuel
+#     fuelMix.P = P_fuel
+
+#     feed = fs.getFeed(fuelMix, airMix, O2Mix, steamMix, moist)
+
+#     if isot:
+#         outlet = isotGasification(feed, T, P, C_avail)
+#     else:
+#         raise NotImplementedError('Non-isothermal gasification not yet implemented.')
+
+#     # Create report
+#     report = {}
+
+#     report['FuelID'] = fuelID
+#     report['Fuel'] = fu.fuels.loc[fuelID]['Description']
+#     report['Fuel mass'] = fuelMass
+#     report['Moisture'] = moist
+#     report['T'] = T - 273.15
+#     report['P'] = P/ct.one_atm
+#     report['ER'] = ER
+#     report['SR'] = SR
+
+#     OC, HC = fs.OHCratio(fuelMix)
+#     report['O/C'] = OC
+#     report['H/C'] = HC
+
+#     gasFracs = op.getAmounts(outlet, species, norm=True, phase='gas')
+#     for i, s in enumerate(species):
+#         report[s] = gasFracs[i] # All species must be in gas phase
+
+#     report['H2/CO'] = op.H2CO(outlet)
+#     report['CC'] = op.carbonConv(outlet, feed)*100
+#     report['Y'] = op.gasYield(outlet, basis='vol')/fuelMass
+#     report['HHV'] = op.syngasHHV(outlet, basis='fuel mass', fuelMass=fuelMass)
+
+#     fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
+#     report['CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)*100  
+
+#     return report, feed, outlet, fuelMix
+
 def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm, 
-                air=0.5, stm=0.0, airType='ER', stmType='SR', C_avail=1.0, isot=True,
+                air=0.5, stm=0.0, airType='ER', stmType='SR', C=1.0, CH4=0.0, isot=True,
                 species=['C(gr)','N2','O2','H2','CO','CH4','CO2','H2O']):
     '''
     Creates a full report of the outputs for a given gasification condition.
@@ -690,7 +999,7 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     feed = fs.getFeed(fuelMix, airMix, O2Mix, steamMix, moist)
 
     if isot:
-        outlet = isotGasification(feed, T, P, C_avail)
+        outlet = isotGasification(feed, T, P, C, CH4)
     else:
         raise NotImplementedError('Non-isothermal gasification not yet implemented.')
 
