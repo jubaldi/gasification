@@ -998,6 +998,14 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
 
     feed = fs.getFeed(fuelMix, airMix, O2Mix, steamMix, moist)
 
+    noMix = pp.mix()
+
+    pyFeed = fs.getFeed(fuelMix, noMix, noMix, noMix, moist)
+
+    pyro = isotGasification(pyFeed, T, P, C, CH4)
+    gsFeed = fs.getFeed(pyro, airMix, O2Mix, steamMix, moist=0.0)
+    gasi = isotGasification(gsFeed, T, P, C, CH4)
+
     if isot:
         outlet = isotGasification(feed, T, P, C, CH4)
     else:
@@ -1022,6 +1030,10 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
     gasFracs = op.getAmounts(outlet, species, norm=True, phase='gas')
     for i, s in enumerate(species):
         report[s] = gasFracs[i] # All species must be in gas phase
+    
+    gasiFracs = op.getAmounts(gasi, species, norm=True, db=True, phase='gas')
+    for i, s in enumerate(species):
+        report[s+',2'] = gasiFracs[i] # All species must be in gas phase
 
     report['H2/CO'] = op.H2CO(outlet)
     report['CC'] = op.carbonConv(outlet, feed)*100
@@ -1030,6 +1042,13 @@ def gasifier(fuelID, fuelMass=1.0, moist=0.0, T=1273.15, P=ct.one_atm,
 
     fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
     report['CGE'] = op.coldGasEff(outlet, fuelLHV, moist=moist)*100  
+
+    report['CC,2'] = op.carbonConv(gasi, feed)*100
+    report['Y,2'] = op.gasYield(gasi, basis='vol')/fuelMass
+    report['HHV,2'] = op.syngasHHV(gasi, basis='fuel mass', fuelMass=fuelMass)
+
+    fuelLHV = fu.HV(fuelID, type='LHV', moist=moist)
+    report['CGE,2'] = op.coldGasEff(gasi, fuelLHV, moist=moist)*100  
 
     return report, feed, outlet, fuelMix
 
@@ -1187,7 +1206,7 @@ def findTquasi(fuelID, experimental, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.o
         err = 0
         predicted = np.zeros(len(species))
         report = gasifier(fuelID, fuelMass=fuelMass, moist=moist, T=t, P=P, air=air, 
-                 stm=stm, airType=airType, stmType=stmType, C_avail=C_avail, isot=True, species=species)[0]
+                 stm=stm, airType=airType, stmType=stmType, C=C_avail, CH4=0.0, isot=True, species=species)[0]
         for i, sp in enumerate(species):
             predicted[i] = report[sp]
             err += (predicted[i] - experimental[i])**2
