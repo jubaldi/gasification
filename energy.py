@@ -59,11 +59,26 @@ def get_h_cp(mix, value='h'):
     sMoles = mix.phase_moles(si)
     gMoles = mix.phase_moles(gi)
 
-    h = (sMoles * mix.phase(si).enthalpy_mole
-    + gMoles * mix.phase(gi).enthalpy_mole) / sum(mix.species_moles)
+    if sMoles == 0:
+        h_solid = 0
+        cp_solid = 0
+    else:
+        h_solid = sMoles * mix.phase(si).enthalpy_mole
+        cp_solid = sMoles * mix.phase(si).cp_mole
     
-    cp = (sMoles * mix.phase(si).cp_mole
-    + gMoles * mix.phase(gi).cp_mole) / sum(mix.species_moles)
+    if gMoles == 0:
+        h_gas = 0
+        cp_gas = 0
+    else:
+        h_gas = gMoles * mix.phase(gi).enthalpy_mole
+        cp_gas = gMoles * mix.phase(gi).cp_mole
+
+    if sMoles + gMoles == 0:
+        h = 0
+        cp = 0
+    else:
+        h = (h_solid + h_gas) / sum(mix.species_moles)
+        cp = (cp_solid + cp_gas) / sum(mix.species_moles)
 
     if value == 'h':
         return h
@@ -136,6 +151,14 @@ def hFormation(fuelID, HHV):
                   stoic*h('O2') + HHV*1E6)
     # EDITED 31-10-22: Removed division by moles of C, which I thought was dimensionally inconsistent (Nícolas)
     return hFormation
+
+def get_hFormation(mix):
+    moles = mix.species_moles
+    names = mix.species_names
+    hfo = 0
+    for i, sp in enumerate(names):
+        hfo += moles[i]*pp.Hfo[sp]
+    return hfo # J
 
 def get_enthalpy(self, value='h', duty=0):
     '''

@@ -19,14 +19,14 @@ import scipy.optimize as opt
 #==============================================================================
 # set parameters
 #==============================================================================
-To = 298.195 # K (reference temperature)
+To = 298.15 # K (reference temperature)
 R = ct.gas_constant # 8314.47215 Pa*m^3/K/kmol
 
 #==============================================================================
 # load components to phases
 #==============================================================================
-s = ct.Solution('data/min-species.xml','solid')
-g = ct.Solution('data/min-species.xml','gas')
+s = ct.Solution('data/max-species.xml','solid')
+g = ct.Solution('data/max-species.xml','gas')
 #print s.species_names
 air = ct.Solution('data/air.cti','air')
 def mix():
@@ -63,7 +63,8 @@ Hfo_s = s.standard_enthalpies_RT*To*R
 Hfo_g = g.standard_enthalpies_RT*To*R
 # turn Hfo into dict
 Hfo = {**dict(zip(names_s,Hfo_s)), **dict(zip(names_g,Hfo_g))}
-Hfo['H2O(l)'] = -283970115.359
+Hfo['H2O(l)'] = -283970.115359 # J / kmol
+print(Hfo['C(gr)'])
 
 ## find important indices
 # fuel species
