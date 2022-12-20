@@ -35,6 +35,7 @@ Mw_g = gas.molecular_weights
 # turn molecular weights into dict
 Mw = {**dict(zip(names_s,Mw_s)), **dict(zip(names_g,Mw_g))}
 Mw['H2O(l)'] = Mw['H2O']
+Mw_air = 0.21*Mw['O2'] + 0.78*Mw['N2'] + 0.01*Mw['Ar']
     
 def get_molecular_weight(species):
     return Mw[species]
@@ -64,16 +65,14 @@ indices = {}
 for index, species in enumerate(testMix.species_names):
     indices[species] = index
 
-# New Fuel class inherits Mixture class from Cantera
+# New classes inherit Mixture class from Cantera
 # and adds some properties such as HHV, etc.
-class Fuel(ct.Mixture):
-    # def testMethod(self):
-    #     return [moles+1 for moles in self.species_moles]
-    # testAttribute = 10
-    HHV = None
-    LHV = None
-    moisture = None
-    ashFraction = None
+
+class Stream(ct.Mixture):
+    fuelHHV = None
+    fuelLHV = None
+    fuelMoisture = None
+    fuelAshFraction = None
 
     def get_mass(self):
         mass = 0
@@ -83,10 +82,11 @@ class Fuel(ct.Mixture):
             speciesMass = speciesMole*speciesMW
             mass += speciesMass
         return mass
-    
+
+class Fuel(Stream):
     def set_moisture(self, moisture):
         # Sets moisture content to given fraction (%m/m dry basis)
-        self.moisture = moisture
+        self.fuelMoisture = moisture
         mass = self.get_mass()
         currentWaterMoles = self.species_moles[self.species_index('gas', 'H2O')]
         currentWaterMass = currentWaterMoles * Mw['H2O']
@@ -113,11 +113,17 @@ class Fuel(ct.Mixture):
             newMoles[indices[species]] = newSpeciesMoles
         self.species_moles = newMoles # updates list
 
-    # TO BE CONTINUED
-
 def fuel():
     f = Fuel([(solid,0),(gas,0)])
     f.T = To
     f.P = Po
     return f
 
+class Outlet(Stream):
+    pass
+
+def outlet():
+    o = Outlet([(solid,0),(gas,0)])
+    o.T = To
+    o.P = Po
+    return o
