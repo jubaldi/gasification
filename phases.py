@@ -23,29 +23,7 @@ solid = ct.Solution('data/min-species.xml','solid')
 gas = ct.Solution('data/min-species.xml','gas')
 air = ct.Solution('data/air.cti','air')
 
-# Instantiates a mixture of phases with 0 moles of each species
-def mix():
-    m = ct.Mixture([(solid,0),(gas,0)])
-    m.T = To
-    m.P = Po
-    return m
-
-# New Fuel class inherits Mixture class from Cantera
-# and adds some properties such as HHV, etc.
-class Fuel(ct.Mixture):
-    def testMethod(self):
-        return [moles+1 for moles in self.species_moles]
-    testAttribute = 10
-    HHV = None
-    LHV = None
-    moisture = None
-    # TO BE CONTINUED
-
-def fuel():
-    f = Fuel([(solid,0),(gas,0)])
-    f.T = To
-    f.P = Po
-    return f
+# PROPERTIES - Molecular weight, Enthalpy of formation
 
 names_s = solid.species_names
 names_g = gas.species_names
@@ -71,3 +49,75 @@ Hfo['H2O(l)'] = -283970.115359 # J / kmol
 
 def get_enthalpy_formation(species):
     return Hfo[species]
+
+# Important functions and classes
+
+# Instantiates a mixture of phases with 0 moles of each species
+def mix():
+    m = ct.Mixture([(solid,0),(gas,0)])
+    m.T = To
+    m.P = Po
+    return m
+
+testMix = mix()
+indices = {}
+for index, species in enumerate(testMix.species_names):
+    indices[species] = index
+
+# New Fuel class inherits Mixture class from Cantera
+# and adds some properties such as HHV, etc.
+class Fuel(ct.Mixture):
+    # def testMethod(self):
+    #     return [moles+1 for moles in self.species_moles]
+    # testAttribute = 10
+    HHV = None
+    LHV = None
+    moisture = None
+    ashFraction = None
+
+    def get_mass(self):
+        mass = 0
+        for i, species in enumerate(self.species_names):
+            speciesMole = self.species_moles[i]
+            speciesMW = Mw[species]
+            speciesMass = speciesMole*speciesMW
+            mass += speciesMass
+        return mass
+    
+    def set_moisture(self, moisture):
+        # Sets moisture content to given fraction (%m/m dry basis)
+        self.moisture = moisture
+        mass = self.get_mass()
+        currentWaterMoles = self.species_moles[self.species_index('gas', 'H2O')]
+        currentWaterMass = currentWaterMoles * Mw['H2O']
+        dryMass = mass - currentWaterMass
+        newWaterMass = dryMass*moisture
+        newWaterMoles = newWaterMass / Mw['H2O']
+        newMoles = self.species_moles
+        newMoles[indices['H2O']] = newWaterMoles
+        self.species_moles = newMoles
+    
+    def redistribute_ash(self, ashComposition):
+        # Sets a new ash composition, mantaining fixed ash mass, given ash composition distribution (%m/m of ash)
+        ashComponents = ['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']
+        ashMass = 0
+        for index, species in enumerate(ashComponents):
+            speciesMoles = self.species_moles[indices[species]]
+            speciesMass = speciesMoles * Mw[species]
+            ashMass += speciesMass
+        newAshMassDistr = [ashMass*comp for comp in ashComposition]
+        newMoles = self.species_moles # list to be updated
+        for index, species in enumerate(ashComponents):
+            newSpeciesMass = newAshMassDistr[index]
+            newSpeciesMoles = newSpeciesMass / Mw[species]
+            newMoles[indices[species]] = newSpeciesMoles
+        self.species_moles = newMoles # updates list
+
+    # TO BE CONTINUED
+
+def fuel():
+    f = Fuel([(solid,0),(gas,0)])
+    f.T = To
+    f.P = Po
+    return f
+
