@@ -35,7 +35,7 @@ one = np.ones(1)
 #     DHfo = HHV - (327.63*C_ar + 1417.94*H_ar + 92.57*S_ar + 158.67*moistureWB) # kJ/kg
 #     return DHfo # kJ/kg
 
-def hFormation(fuel):
+def get_fuel_enthalpy_formation(fuel):
     '''
     Estimates the standard enthalpy of formation of the given fuel [J]
     from Higher Heating Value (HHV) and species composition.
@@ -92,9 +92,10 @@ leather = fs.create_fuel_stream(1, ultimateDAF, ashDB, moistDB, 18.448, 16.729,
                                 [23.58, 1.20, 7.35, 2.59, 1.08, 0.79, 0, 1.59, 1.53, 0, 55.91])
 emptyAir = fs.create_air_from_ER(leather, 0)
 
-# print(get_fuel_hf_Li(leather))
-print(hFormation(leather))
+
 formula = leather.get_fuel_formula()
-air = fs.create_air_from_ER(leather, 0.5)
-O2 = fs.create_O2_from_ER(leather, 0.5)
-print(get_enthalpy(O2))
+air1 = fs.create_air_from_ER(leather, 0.5)
+air1.T = 298.15
+print(air1.phase(1).enthalpy_mole)
+steam = fs.create_steam_stream(10)
+print(air1.phase(1).enthalpy_mole)

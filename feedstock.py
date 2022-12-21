@@ -133,9 +133,9 @@ def create_O2_stream(oxygenMass, T=298.15, P=101325):
 
 def create_steam_stream(steamMass, T=298.15, P=101325):
     steamStream = phases.stream()
-    moles = steamStream.species_moles
-    moles[phases.indices['H2O']] = steamMass / phases.Mw['H2O']
-    steamStream.species_moles = moles
+    steamMoles = steamStream.species_moles
+    steamMoles[phases.indices['H2O']] = steamMass / phases.Mw['H2O']
+    steamStream.species_moles = steamMoles
     steamStream.T = T
     steamStream.P = P
     return steamStream
