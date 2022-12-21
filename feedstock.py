@@ -47,6 +47,7 @@ def create_fuel_from_db(fuelID, fuelDryMass, moisture):
             molesInOrder[index] = 0
 
     fuelMix.species_moles = molesInOrder
+    fuelMix.fuelDryMass = fuelDryMass
 
     fuelMix.set_moisture(moisture)
 
@@ -104,6 +105,7 @@ def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV=None, L
     fuelMix.fuelHHV = HHV
     fuelMix.fuelLHV = LHV
     fuelMix.fuelAshFraction = ashFraction
+    fuelMix.fuelDryMass = fuelDryMass
     fuelMix.set_moisture(moisture)
 
     return fuelMix
@@ -192,6 +194,11 @@ def convert_ER_O2(fuelStream, ER):
     oxygenMass = currentO2Moles * phases.Mw['O2']
     return oxygenMass
 
+def create_air_from_ER(fuelStream, ER):
+    return create_air_stream(convert_ER_air(fuelStream, ER))
+
+def create_O2_from_ER(fuelStream, ER):
+    return create_O2_stream(convert_ER_O2(fuelStream, ER))
 
 
 

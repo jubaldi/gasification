@@ -69,6 +69,7 @@ class Stream(ct.Mixture):
     fuelLHV = None
     fuelMoisture = None
     fuelAshFraction = None
+    fuelDryMass = None
 
     # Outlet-specific attributes
     carbonConversion = None
@@ -118,6 +119,19 @@ class Stream(ct.Mixture):
             newMoles[indices[species]] = newSpeciesMoles
         self.species_moles = newMoles # updates list
     
+    def get_fuel_formula(self):
+        nC = self.species_moles[indices['C(gr)']]
+        nH = self.species_moles[indices['H']]
+        nO = self.species_moles[indices['O']]
+        nN = self.species_moles[indices['N']]
+        nS = self.species_moles[indices['S']]
+        nCl = self.species_moles[indices['CL']]
+        nAsh = 0
+        for i, comp in enumerate(['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']):
+            nAsh += self.species_moles[indices[comp]]
+        formula = [1, nH/nC, nO/nC, nN/nC, nS/nC, nCl/nC, nAsh/nC]
+        return formula
+
     # Method for computing mole fraction of a certain species in the gas phase.
     def get_gas_fraction(self, species):
         # 'species' must be gas-phase species.
