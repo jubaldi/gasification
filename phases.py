@@ -51,29 +51,29 @@ Hfo['H2O(l)'] = -283970.115359 # J / kmol
 def get_enthalpy_formation(species):
     return Hfo[species]
 
-# Important functions and classes
-
-# Instantiates a mixture of phases with 0 moles of each species
-def mix():
-    m = ct.Mixture([(solid,0),(gas,0)])
-    m.T = To
-    m.P = Po
-    return m
-
-testMix = mix()
-indices = {}
-for index, species in enumerate(testMix.species_names):
-    indices[species] = index
-
-# New classes inherit Mixture class from Cantera
+# New class "Stream" inherits Mixture class from Cantera
 # and adds some properties such as HHV, etc.
-
+# Also adds important methods to calculate gasification and log results
 class Stream(ct.Mixture):
+    '''
+    This is a general-purpose class for representing fuel, gasifying agent and syngas streams.
+    It is inherited from Cantera 'Mixture' class.
+    The function 'stream()' is a quick way to instantiate an empty stream.
+    Some attributes and methods are best applied to a specific type of stream (fuel, agent, outlet).
+    When functions are applied to Stream objects, some attributes are used to register its history:
+    for instance, gasifier.gasify_isot function registers fuelHHV on outlet because this information
+    is important to determine cold gas efficiency.
+    '''
+    # Fuel-specific attributes
     fuelHHV = None
     fuelLHV = None
     fuelMoisture = None
     fuelAshFraction = None
 
+    # Outlet-specific attributes
+    carbonConversion = None
+
+    # Method for computing total mass of stream
     def get_mass(self):
         mass = 0
         for i, species in enumerate(self.species_names):
@@ -82,8 +82,8 @@ class Stream(ct.Mixture):
             speciesMass = speciesMole*speciesMW
             mass += speciesMass
         return mass
-
-class Fuel(Stream):
+    
+    # Fuel-specific method for setting moisture content when creating a fuel stream (used in feedstock.py)
     def set_moisture(self, moisture):
         # Sets moisture content to given fraction (%m/m dry basis)
         self.fuelMoisture = moisture
@@ -97,10 +97,15 @@ class Fuel(Stream):
         newMoles[indices['H2O']] = newWaterMoles
         self.species_moles = newMoles
     
+    # Fuel-specific method for setting ash composition when creating a fuel stream (used in feedstock.py)
     def redistribute_ash(self, ashComposition):
         # Sets a new ash composition, mantaining fixed ash mass, given ash composition distribution (%m/m of ash)
         ashComponents = ['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']
         ashMass = 0
+        # Normalize ash composition
+        totalAsh = sum(ashComposition)
+        ashComposition = [ashComp / totalAsh for ashComp in ashComposition]
+
         for index, species in enumerate(ashComponents):
             speciesMoles = self.species_moles[indices[species]]
             speciesMass = speciesMoles * Mw[species]
@@ -112,18 +117,35 @@ class Fuel(Stream):
             newSpeciesMoles = newSpeciesMass / Mw[species]
             newMoles[indices[species]] = newSpeciesMoles
         self.species_moles = newMoles # updates list
+    
+    # Method for computing mole fraction of a certain species in the gas phase.
+    def get_gas_fraction(self, species):
+        # 'species' must be gas-phase species.
+        gasMoles = self.phase_moles('gas')
+        speciesMoles = self.species_moles[self.species_index('gas', species)]
+        return speciesMoles / gasMoles
 
-def fuel():
-    f = Fuel([(solid,0),(gas,0)])
-    f.T = To
-    f.P = Po
-    return f
+    # Method for computing amount of syngas. This can then be divided by fuelMass to obtain syngas yield.
+    # Preferably used on outlet streams to determine syngas yield.
+    def get_gas_amount(self, quantity='vol', basis='db'):
+        
+        gasAmount = None
 
-class Outlet(Stream):
-    pass
+        return gasAmount
 
-def outlet():
-    o = Outlet([(solid,0),(gas,0)])
-    o.T = To
-    o.P = Po
-    return o
+    def get_syngas_hhv(self):
+        HHV = None
+        return HHV
+
+# Instantiates a stream with 0 moles of each species
+def stream():
+    st = Stream([(solid,0),(gas,0)])
+    st.T = To
+    st.P = Po
+    return st
+
+# 'indices' is a dictionary that relates species names to their index.
+testMix = stream()
+indices = {}
+for index, species in enumerate(testMix.species_names):
+    indices[species] = index

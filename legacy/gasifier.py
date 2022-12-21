@@ -15,6 +15,7 @@ import sys
 import cantera as ct
 import numpy as np
 import scipy.optimize as opt
+import matplotlib.pyplot as plt
 
 import pp
 import feedstock as fs
@@ -232,46 +233,46 @@ def isotGasification(feed, T=1273.15, P=ct.one_atm, C=1.0, CH4=0.0):
     
     return outlet
 
-# def isotGasification(feed, T=1273.15, P=ct.one_atm, C_avail=1.0):
-    '''
-    Isothermal gasification calculation for a single fuel in a given condition.
+# # def isotGasification(feed, T=1273.15, P=ct.one_atm, C_avail=1.0):
+#     '''
+#     Isothermal gasification calculation for a single fuel in a given condition.
 
-    Parameters
-    ----------
-    feed : Cantera 'Mixture' object
-        Object representing the feed mixture.
-    T : float
-        Temperature [K] (default: 1273.15 K)
-    P : float
-        Pressure [Pa] (default: 101325 Pa)
-    C_avail : float
-        Fraction of carbon from total that is available for equilibrium calculations (default: 1.0)
+#     Parameters
+#     ----------
+#     feed : Cantera 'Mixture' object
+#         Object representing the feed mixture.
+#     T : float
+#         Temperature [K] (default: 1273.15 K)
+#     P : float
+#         Pressure [Pa] (default: 101325 Pa)
+#     C_avail : float
+#         Fraction of carbon from total that is available for equilibrium calculations (default: 1.0)
 
-    Returns
-    -------
-    outlet : Cantera 'Mixture' object
-        Object representing the mixture at equilibrium.
-    '''
+#     Returns
+#     -------
+#     outlet : Cantera 'Mixture' object
+#         Object representing the mixture at equilibrium.
+#     '''
 
-    # Separate out unavailable C moles
-    moles = feed.species_moles
-    unavailable_C_moles = moles[pp.i['C(gr)']] * (1 - C_avail)
-    moles[pp.i['C(gr)']] *= C_avail
-    feed.species_moles = moles
+#     # Separate out unavailable C moles
+#     moles = feed.species_moles
+#     unavailable_C_moles = moles[pp.i['C(gr)']] * (1 - C_avail)
+#     moles[pp.i['C(gr)']] *= C_avail
+#     feed.species_moles = moles
 
-    # Initialize outlet stream
-    outlet = pp.mix()
-    outlet.species_moles = feed.species_moles
+#     # Initialize outlet stream
+#     outlet = pp.mix()
+#     outlet.species_moles = feed.species_moles
 
-    # Calculate equilibrium
-    outlet.T = T
-    outlet.P = P
-    outlet.equilibrate('TP')
+#     # Calculate equilibrium
+#     outlet.T = T
+#     outlet.P = P
+#     outlet.equilibrate('TP')
 
-    # Add back unavailable C moles
-    outlet.species_moles += unavailable_C_moles
+#     # Add back unavailable C moles
+#     outlet.species_moles += unavailable_C_moles
     
-    return outlet
+#     return outlet
 
 def isotCogasification(fuel1, fuel2, mass=1.0, blend=0.5, moist=(0.0,0.0), T=1273.15, 
                     P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR'):
@@ -615,8 +616,6 @@ def NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.one_at
     # print('hfo final =',  en.get_hFormation(outlet))
     print('T =', Teq)
     return outlet, inlet, fuelMix
-fuelID = 'DroguHazelnut'
-outlet, inlet, fuelMix = NonIsotGasification(fuelID, fuelMass=1.0, moist=0.0, T0=1200, P=ct.one_atm, air=0.5, stm=0.0, airType='ER', stmType='SR', heatLoss=0.1, guess=pp.To)
 
 def NonIsotGasification2(fuelID, O2Mix, airMix, stmMix, fuelMass=1.0, moist=0.0, P=ct.one_atm, C_avail=1.0, heatLoss=0.0, guess=pp.To):
     '''
@@ -1623,3 +1622,81 @@ def findParams(fuelID, experimental, fuelMass=1.0, moist=0.0, T0=1273.15, P=ct.o
 #         print('Blend #' + str(i+1) + ' (' + str(fuel_id[0]) + '-' \
 #               + str(fuel_id[i+1]) + '): DONE')
 #     return None
+
+# # JAYAH 2003
+# fuelID = 'Rubber'
+# T = 950 + 273.15 # K
+# P = ct.one_atm
+# moist = [0.185, 0.160, 0.147, 0.160, 0.152, 0.140, 0.147, 0.138, 0.125]
+# air = [2.03, 2.20, 2.37, 1.96, 2.12, 2.29, 1.86, 2.04, 2.36]
+# species = ['CO', 'H2', 'CO2', 'CH4', 'N2']
+
+# y = np.zeros((len(moist), len(species)))
+# yields = np.zeros((len(moist)))
+
+# for i, m in enumerate(moist):
+#     results = gasifier(fuelID, moist=m, T=T, P=P, air=air[i], airType='air', species=species)
+#     report = results[0]
+#     yields[i] = report['Y']
+#     for j, s in enumerate(species):
+#         y[i,j] = report[s]
+
+# for yy in y[:,4]:
+#     print(yy*100)
+
+# CO = [19.6, 20.2, 19.4, 18.4, 19.7, 18.9, 19.1, 22.1, 19.1]
+# H2 = [17.2, 18.3, 17.2, 17.0, 13.2, 12.5, 15.5, 12.7, 13.0]
+# CO2 = [9.9, 9.7, 9.7, 10.6, 10.8, 8.5, 11.4, 10.5, 10.7]
+# CH4 = [1.4, 1.1, 1.1, 1.3, 1.3, 1.2, 1.1, 1.3, 1.2]
+# N2 = [51.9, 50.7, 52.6, 52.7, 55.0, 59.1, 52.9, 53.4, 56.0]
+
+# fuelID = 'Rubber'
+# species = ['CO', 'H2', 'CO2', 'CH4', 'N2']
+# moist0 = 0.15
+# P0 = ct.one_atm
+# T0 = 1000 # K
+# ER0 = 0.4
+# moistL = np.arange(0, 1+0.01, 0.01)
+# TL = np.arange(800, 1400+10, 10)
+# PL = np.arange(0.8*10**5, (2.0+0.01)*10**5, 0.01*10**5)
+# ERL = np.arange(0, 1+0.01, 0.01)
+
+# yt = np.zeros((len(TL), len(species)))
+# yieldst = np.zeros((len(TL)))
+# CGEt = np.zeros((len(TL)))
+# HHVt = np.zeros((len(TL)))
+
+# for i, t in enumerate(TL):
+#     results = gasifier(fuelID, moist=moist0, T=t, P=P0, air=ER0, airType='ER', species=species)
+#     report = results[0]
+#     yieldst[i] = report['Y']
+#     CGEt[i] = report['CGE']
+#     HHVt[i] = report['HHV']
+#     for j, s in enumerate(species):
+#         yt[i,j] = report[s]
+
+# figt1 = plt.figure()
+# plt.plot(TL, yt[:,0]*100, label='$\mathregular{CO}$')
+# plt.plot(TL, yt[:,1]*100, label='$\mathregular{H_2}$')
+# plt.plot(TL, yt[:,2]*100, label='$\mathregular{CO_2}$')
+# plt.plot(TL, yt[:,3]*100, label='$\mathregular{CH_4}$')
+# plt.plot(TL, yt[:,4]*100, label='$\mathregular{N_2}$')
+# #lt.title('Composição do gás vs. Temperatura')
+# plt.xlabel('Temperatura [K]')
+# plt.ylabel('Fração molar [%]')
+# plt.legend()
+# plt.grid()
+# #plt.savefig('results/JayahT1')
+# plt.show()
+
+# # figt2, ax1 = plt.subplots()
+# # plt.xlabel('Temperatura [K]')
+# # ax1.plot(TL, HHVt, label='PCS [MJ/kg]', color='b')
+# # ax1.set_ylabel("PCS [MJ/kg]",color="b")
+# # ax2 = ax1.twinx()
+# # ax2.plot(TL, yieldst, label='Rendimento [Nm³/kg]', color='r')
+# # ax2.set_ylabel("Rendimento [Nm³/kg]",color="r")
+# # #plt.title('Rendimento e PCS vs. Temperatura')
+# # plt.grid()
+# # #plt.savefig('results/JayahT2')
+# # plt.show()

@@ -47,7 +47,7 @@ def gasYield(outlet, basis='vol', db=True):
         'vol' = normal volume amount, Nm³
         Normal condition at 273.15K and 1 atm.
     db : string
-        Dry basis ('y', default) or wet basis ('n')
+        Dry basis (True, default) or wet basis (False)
     
     Returns
     -------

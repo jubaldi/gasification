@@ -35,7 +35,7 @@ def create_fuel_from_db(fuelID, fuelDryMass, moisture):
 
     molesBySpecies = {key: value/phases.get_molecular_weight(key) for key, value in massBySpecies.items()} # kmol
 
-    fuelMix = phases.fuel()
+    fuelMix = phases.stream()
     fuelMix.fuelHHV = fu.get_hv(fuelID, 'HHV')
     fuelMix.fuelLHV = fu.get_hv(fuelID, 'LHV')
 
@@ -52,7 +52,7 @@ def create_fuel_from_db(fuelID, fuelDryMass, moisture):
 
     return fuelMix
 
-def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV, LHV=None, 
+def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV=None, LHV=None, 
                 ashComposition=[50, 20, 10, 10, 10, 0, 0, 0, 0, 0, 0]):
     '''
     Create a Cantera 'Mixture' object representing the given fuel.
@@ -62,11 +62,11 @@ def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV, LHV=No
     fuelDryMass : float
         The fuel mass [kg] in dry basis
     ultimate : list
-        Ultimate analysis of the fuel: [C H O N S Cl] (%m/m dry basis)
+        Ultimate analysis of the fuel: [C H O N S Cl] (mass fraction dry ash free (DAF) basis)
     ashFraction : float
-        Fraction of ash in the fuel (%m/m dry basis)
+        Fraction of ash in the fuel (mass fraction dry basis)
     moisture : float
-        Moisture content of the fuel (m/m fraction dry basis)
+        Moisture content of the fuel (mass fraction dry basis)
     HHV : float
         Higher heating value of the fuel (MJ/kg)
     LHV : float
@@ -77,12 +77,11 @@ def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV, LHV=No
     fuelMix : Fuel object
         The fuel mixture object.
     '''
-    fuelMix = phases.fuel()
+    fuelMix = phases.stream()
 
-    # Normalization: ultimate + ashFraction should add up to 100%
-    total = sum(ultimate) + ashFraction
+    # Normalization: ultimate should add up to 100% (dry ash free basis)
+    total = sum(ultimate)
     ultimate = [item / total for item in ultimate]
-    ashFraction = ashFraction / total
     # Ash compositon should be normalized as well
     totalAsh = sum(ashComposition)
     ashComposition = [speciesComp / totalAsh for speciesComp in ashComposition]
@@ -90,7 +89,7 @@ def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV, LHV=No
     moles = fuelMix.species_moles
 
     for index, species in enumerate(["C(gr)", "H", "O", "N", "S", "CL"]):
-        speciesMass = ultimate[index] * fuelDryMass
+        speciesMass = ultimate[index] * (1 - ashFraction) * fuelDryMass
         speciesMoles = speciesMass / phases.Mw[species]
         moles[phases.indices[species]] = speciesMoles
     
@@ -109,8 +108,8 @@ def create_fuel_stream(fuelDryMass, ultimate, ashFraction, moisture, HHV, LHV=No
 
     return fuelMix
 
-def create_air_stream(airMass, T, P):
-    airStream = phases.mix()
+def create_air_stream(airMass, T=298.15, P=101325):
+    airStream = phases.stream()
     airMoles = airMass / phases.Mw_air
     moles = airStream.species_moles
     moles[phases.indices['O2']] = 0.21*airMoles
@@ -121,8 +120,8 @@ def create_air_stream(airMass, T, P):
     airStream.P = P
     return airStream
 
-def create_O2_stream(oxygenMass, T, P):
-    oxygenStream = phases.mix()
+def create_O2_stream(oxygenMass, T=298.15, P=101325):
+    oxygenStream = phases.stream()
     moles = oxygenStream.species_moles
     moles[phases.indices['O2']] = oxygenMass / phases.Mw['O2']
     oxygenStream.species_moles = moles
@@ -130,8 +129,8 @@ def create_O2_stream(oxygenMass, T, P):
     oxygenStream.P = P
     return oxygenStream
 
-def create_steam_stream(steamMass, T, P):
-    steamStream = phases.mix()
+def create_steam_stream(steamMass, T=298.15, P=101325):
+    steamStream = phases.stream()
     moles = steamStream.species_moles
     moles[phases.indices['H2O']] = steamMass / phases.Mw['H2O']
     steamStream.species_moles = moles
@@ -139,20 +138,20 @@ def create_steam_stream(steamMass, T, P):
     steamStream.P = P
     return steamStream
 
-# ------------------
-def determine_stoich_ash(fuelStream): # DEPRECATED???
-    totalMoles = sum(fuelStream.species_moles)
+# # ------------------
+# def determine_stoich_ash(fuelStream): # DEPRECATED???
+#     totalMoles = sum(fuelStream.species_moles)
 
-    m = lambda e: fuelStream.element_moles(e)
-    stoicO2Mole = (m('C') + 0.25*m('H') - 0.5*m('O') + m('S') + 0.5*m('Cl') +
-                    + m('Si') + 0.5*m('Ca') + 0.75*m('Al') +
-                    + 0.75*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') +
-                    + 1.25*m('P') + m('Ti') + 0.75*m('Cr'))
-    # EDITED 31-10-22: Changed some coefficients I thought were wrong (Nícolas)
-    stoichO2Ratio = stoicO2Mole / totalMoles
+#     m = lambda e: fuelStream.element_moles(e)
+#     stoicO2Mole = (m('C') + 0.25*m('H') - 0.5*m('O') + m('S') + 0.5*m('Cl') +
+#                     + m('Si') + 0.5*m('Ca') + 0.75*m('Al') +
+#                     + 0.75*m('Fe') + 0.25*m('Na') + 0.25*m('K') + 0.5*m('Mg') +
+#                     + 1.25*m('P') + m('Ti') + 0.75*m('Cr'))
+#     # EDITED 31-10-22: Changed some coefficients I thought were wrong (Nícolas)
+#     stoichO2Ratio = stoicO2Mole / totalMoles
 
-    return stoichO2Ratio
-# ------------------
+#     return stoichO2Ratio
+# # ------------------
 
 def determine_stoich(fuelStream):
     totalMoles = sum(fuelStream.species_moles)
@@ -200,12 +199,12 @@ def convert_ER_O2(fuelStream, ER):
 
 def combine_streams(stream1, stream2):
 
-    combinedStream = phases.mix()
+    combinedStream = phases.stream()
 
     return combinedStream
 
 def blend_fuels(fuelStream1, fuelStream2):
 
-    fuelBlend = phases.fuel()
+    fuelBlend = phases.stream()
 
     return fuelBlend
