@@ -69,10 +69,11 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     fuel.P = P
     agent.T = T0
     agent.P = P
-    enthalpyFormationFuel = en.get_fuel_enthalpy_formation(fuel) # J
+    enthalpyFormationFuel = en.get_dry_fuel_HF(fuel) * fuel.species_moles[phases.indices['C(gr)']] # J
+    enthalpyFormationMoisture = (fuel.fuelDryMass * fuel.fuelMoisture / phases.Mw['H2O(l)']) * phases.Hfo['H2O(l)'] # J
     enthalpyAgent = en.get_enthalpy(agent) # J
     # enthalpyFormationAgent = en.get_enthalpy_formation(agent)
-    initialEnthalpy = enthalpyFormationFuel + enthalpyAgent # J
+    initialEnthalpy = enthalpyFormationFuel + enthalpyFormationMoisture + enthalpyAgent # J
     lostEnthalpy = abs(enthalpyFormationFuel) * heatLossFraction
     desiredEnthalpy = initialEnthalpy - lostEnthalpy
     # print('formation fuel: ', enthalpyFormationFuel)
@@ -129,6 +130,21 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     # print('last: ', en.get_enthalpy(outlet))
 
     return outlet
+
+# coalUltimate = [78.4750, 3.9681, 16.0249, 0.7044, 0.7748, 0.0528] # % daf
+# coalAshDB = 0.130816 # fraction, d.b.
+# coalMoistDB = 0.02 / (1 - 0.02) # fraction, d.b.
+# coalHHV = 25.232 # MJ/kg
+# coalLHV = 24.648 # MJ/kg
+# ashComposition = [54.06, 6.57, 23.18, 6.85, 0.82, 1.6, 1.83, 0.5, 1.05, 3.54, 0] # % of ash
+# coal = fs.create_fuel_stream(980, coalUltimate, coalAshDB, coalMoistDB, HHV=coalHHV, LHV=coalLHV, ashComposition=ashComposition)
+# coal.fuelAshMW = 80.7 # kg/kmol
+# coal.fuelAshHF = -788.92*1E6 # MJ/kmol
+# air = fs.create_air_from_ER(coal, 1)
+# outlet = gasify_isot(coal, air, T=1273.15, charFormation=0.8676)
+# print(outlet.get_phase_mass(0))
+# print(outlet.get_phase_mass(1))
+
 
 # oltenia = fs.create_fuel_stream(1, [57.67, 4.59, 19.95, 1.56, 2.83, 0], 0, 13.39/(100-13.39))
 # oxygen = fs.create_O2_from_ER(oltenia, 0.35)

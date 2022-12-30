@@ -37,7 +37,7 @@ def get_fuel_hf_Li(fuel):
     DHfo_total = DHfo * fuel.fuelDryMass * 1000 # J
     return DHfo_total # J
 
-def get_fuel_enthalpy_formation(fuel):
+def get_dry_fuel_HF(fuel):
     '''
     Estimates the standard enthalpy of formation of the given fuel [J]
     from Higher Heating Value (HHV) and species composition.
@@ -50,7 +50,7 @@ def get_fuel_enthalpy_formation(fuel):
     Returns
     -------
     hFormation : float
-        Standard enthalpy of formation [J]
+        Standard enthalpy of formation [J/kmol]
     '''
     h = lambda x: phases.Hfo[x]
     n = lambda x: fuel.species_moles[phases.indices[x]]
@@ -60,28 +60,29 @@ def get_fuel_enthalpy_formation(fuel):
     stoic = fs.determine_stoich(fuel) * sum(fuel.species_moles)
     hFormationCombs = (n('C(gr)')*h('CO2') + 0.5*n('H')*h('H2O(l)') + n('S')*h('SO2') + n('CL')*h('CLO')) / n('C(gr)')
     hFormationHHV = HHV / n('C(gr)')
-    hFormationMoist = (n('H2O')*h('H2O(l)'))
-    hFormationN = (n('N')*h('N2')) / n('C(gr)')
-    hFormationO = (-stoic*h('O2')) / n('C(gr)')
-    hFormationAsh = (n('CaO(s)')*h('CaO(s)') +                  
-                    n('SiO2(hqz)')*h('SiO2(hqz)') + n('AL2O3(a)')*h('AL2O3(a)') +
-                    n('Fe2O3(s)')*h('Fe2O3(s)') + n('Na2O(c)')*h('Na2O(c)') + 
-                    n('K2O(s)')*h('K2O(s)') + n('MgO(s)')*h('MgO(s)') + 
-                    n('P2O5')*h('P2O5') + n('TiO2(ru)')*h('TiO2(ru)') + 
-                    n('SO3')*h('SO3') + n('Cr2O3(s)')*h('Cr2O3(s)')) / n('C(gr)')
-    hFormation = hFormationCombs + hFormationHHV + hFormationN + hFormationO + hFormationAsh + hFormationMoist # J / (1 kmol C(gr))
-    # print('Combs: ', hFormationCombs*1E-6)
-    # print('HHV: ', hFormationHHV*1E-6)
-    # print('N: ', hFormationN*1E-6)
-    # print('O: ', hFormationO*1E-6)
-    # print('Ash: ', hFormationAsh*1E-6)
-    # print('Moist: ', hFormationMoist*1E-6)
-    # print('Total: ', hFormation*1E-6)
+    # hFormationMoist = (n('H2O')*h('H2O(l)')) / n('C(gr)')
+    # hFormationN = (n('N')*h('N2')) / n('C(gr)')
+    # hFormationO = (-stoic*h('O2')) / n('C(gr)')
+    ashMoles = fuel.fuelDryMass*fuel.fuelAshFraction/fuel.fuelAshMW
+    hFormationAsh = fuel.fuelAshHF * ashMoles / n('C(gr)')
+    # print('Combs', hFormationCombs*1E-6)
+    # print('HHV', hFormationHHV*1E-6)
+    # print('Ash', hFormationAsh*1E-6)
+    hFormation = hFormationCombs + hFormationHHV + hFormationAsh # J / (1 kmol C(gr))
     hFormation_total = hFormation * fuel.species_moles[phases.indices['C(gr)']]
     hFormation_mass = hFormation_total / fuel.get_mass() # J/kg
-    # EDITED 31-10-22: Removed division by moles of C, which I thought was dimensionally inconsistent (Nícolas)
-    # EDITED 20-12-22: Went back on that division, turns out it was correct. Oops (Nícolas)
-    return hFormation_total
+    return hFormation
+
+# coalUltimate = [78.4750, 3.9681, 16.0249, 0.7044, 0.7748, 0.0528] # % daf
+# coalAshDB = 0.130816 # fraction, w.b.
+# coalMoistDB = 0 # fraction, w.b.
+# coalHHV = 25.232 # MJ/kg
+# coalLHV = 24.648 # MJ/kg
+# ashComposition = [54.06, 6.57, 23.18, 6.85, 0.82, 1.6, 1.83, 0.5, 1.05, 3.54, 0] # % of ash
+# coal = fs.create_fuel_stream(980, coalUltimate, coalAshDB, coalMoistDB, HHV=coalHHV, LHV=coalLHV, ashComposition=ashComposition)
+# coal.fuelAshMW = 80.7
+# coal.fuelAshHF = -788.92*1E6
+# print(get_dry_fuel_HF(coal)*1E-6)
 
 def get_enthalpy(stream):
     # Returns stream enthalpy in J.

@@ -70,6 +70,10 @@ class Stream(ct.Mixture):
     fuelMoisture = None
     fuelAshFraction = None
     fuelDryMass = None
+    fuelAshComposition = None
+    fuelAshMW = None
+    fuelAshMass = None
+    fuelAshHF = None
 
     # Outlet-specific attributes
     carbonConversion = None
@@ -118,22 +122,32 @@ class Stream(ct.Mixture):
     def redistribute_ash(self, ashComposition):
         # Sets a new ash composition, mantaining fixed ash mass, given ash composition distribution (%m/m of ash)
         ashComponents = ['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']
+        
         ashMass = 0
         # Normalize ash composition
         totalAsh = sum(ashComposition)
         ashComposition = [ashComp / totalAsh for ashComp in ashComposition]
-
+        self.fuelAshComposition = ashComposition # update attribute
+        
         for index, species in enumerate(ashComponents):
             speciesMoles = self.species_moles[indices[species]]
             speciesMass = speciesMoles * Mw[species]
             ashMass += speciesMass
-        newAshMassDistr = [ashMass*comp for comp in ashComposition]
+            newAshMassDistr = [ashMass*comp for comp in ashComposition]
+        self.fuelAshMass = ashMass
+
         newMoles = self.species_moles # list to be updated
+        ashMoles = 0
+        ash_hFormation_absolute = 0
         for index, species in enumerate(ashComponents):
             newSpeciesMass = newAshMassDistr[index]
             newSpeciesMoles = newSpeciesMass / Mw[species]
             newMoles[indices[species]] = newSpeciesMoles
+            ashMoles += newSpeciesMoles
+            ash_hFormation_absolute += Hfo[species] * newSpeciesMoles
         self.species_moles = newMoles # updates list
+        self.fuelAshMW = ashMass / ashMoles # updates attribute
+        self.fuelAshHF = ash_hFormation_absolute / ashMoles
     
     def get_fuel_formula(self):
         nC = self.species_moles[indices['C(gr)']]
@@ -148,20 +162,16 @@ class Stream(ct.Mixture):
         formula = [1, nH/nC, nO/nC, nN/nC, nS/nC, nCl/nC, nAsh/nC]
         return formula
 
-    # Method for computing mole fraction of a certain species in the gas phase.
-    def get_gas_fraction(self, species):
-        # 'species' must be gas-phase species.
-        gasMoles = self.phase_moles('gas')
-        speciesMoles = self.species_moles[self.species_index('gas', species)]
-        return speciesMoles / gasMoles
+    def get_ash_Mw(self):
+        pass
 
     # Method for computing amount of syngas. This can then be divided by fuelMass to obtain syngas yield.
     # Preferably used on outlet streams to determine syngas yield.
-    def get_gas_amount(self, quantity='vol', water=False, nitrogen=False):
+    def get_syngas_amount(self, basis='vol', water=False, nitrogen=False):
         '''
         Parameters
         ----------
-        quantity : str
+        basis : str
             'vol' = Returns gas volume in Nm³ (default)
             'mole' = Returns gas moles in kmol
             'mass' = Returns gas mass in kg
@@ -187,18 +197,25 @@ class Stream(ct.Mixture):
             gasMoles -= self.species_moles[indices['N2']]
             gasMass -= self.species_moles[indices['N2']] * Mw['N2']
         
-        if quantity == 'vol':
+        if basis == 'vol':
             gasAmount = gasMoles * R * Tn / Pn
-        elif quantity == 'mole':
+        elif basis == 'mole':
             gasAmount = gasMoles
-        elif quantity == 'mass':
+        elif basis == 'mass':
             gasAmount = gasMass
         else:
-            raise ValueError('Invalid quantity type. Use vol, mole or mass')
+            raise ValueError('Invalid basis type. Use vol, mole or mass')
 
         return gasAmount
+    
+    # Method for computing mole fraction of a certain species in the gas phase.
+    def get_syngas_fraction(self, species, water=True, nitrogen=True):
+        # 'species' must be gas-phase species.
+        gasMoles = self.get_syngas_amount(basis='mole', water=water, nitrogen=nitrogen)
+        speciesMoles = self.species_moles[self.species_index('gas', species)]
+        return speciesMoles / gasMoles
 
-    def get_syngas_hhv(self, basis='vol'):
+    def get_syngas_hhv(self, basis='vol', water=False, nitrogen=False):
         # Syngas combustibles: H2, CH4, CO
         # H2 + 0.5 O2 -> H2O(l)
         # CH4 + 2 O2 -> CO2 + 2 H2O(l)
@@ -218,7 +235,7 @@ class Stream(ct.Mixture):
         elif basis == 'absolute':
             HHV = HHV
         else:
-            HHV /= self.get_gas_amount(quantity=basis)            
+            HHV /= self.get_syngas_amount(basis=basis, water=water, nitrogen=nitrogen)            
         return HHV # MJ/(kg fuel), MJ, MJ/Nm³, MJ/kmol, MJ/kg
 
 # Instantiates a stream with 0 moles of each species
