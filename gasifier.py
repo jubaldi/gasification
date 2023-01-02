@@ -49,7 +49,7 @@ def gasify_isot(fuel, agent, T=298.15, P=101325, charFormation=0.0, directMethan
     outlet.species_moles = outletMoles
     outlet.T = T
     outlet.P = P
-    outlet.equilibrate('TP', solver='gibbs', max_steps=1E5)
+    outlet.equilibrate('TP', solver='gibbs', max_steps=1E6)
 
     # At the end, char and methane are added back to the stream
     outletMoles = outlet.species_moles
@@ -102,14 +102,14 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     outlet.P = P
     outlet.equilibrate('TP')
 
-    # print('first: ', en.get_enthalpy(outlet))
+    initialMoles = outlet.species_moles
 
     def residual(Teq):
         outlet.T = Teq
         outlet.P = P
         outlet.equilibrate('TP')
         # At the end, char and methane are added back to the stream
-        outletMoles = outlet.species_moles
+        outletMoles = initialMoles.copy()
         outletMoles[phases.indices['C(gr)']] += charMoles
         outletMoles[phases.indices['CH4']] += directMethaneMoles
         outlet.species_moles = outletMoles
@@ -119,6 +119,8 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     
     solution = opt.minimize_scalar(residual, method='bounded', bounds=(200, 10000))
     Teq = solution.x
+
+    outlet.species_moles = initialMoles
     outlet.T = Teq
     outlet.P = P
     outlet.equilibrate('TP')
@@ -130,6 +132,36 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     # print('last: ', en.get_enthalpy(outlet))
 
     return outlet
+
+# def gasify_nonisot2(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charFormation=0.0, directMethaneConv=0.0, isot=False):
+#     fuel.T = T0
+#     fuel.P = P
+#     agent.T = T0
+#     agent.P = P
+#     enthalpyFormationFuel = en.get_dry_fuel_HF(fuel) * fuel.species_moles[phases.indices['C(gr)']] # J
+#     enthalpyFormationMoisture = (fuel.fuelDryMass * fuel.fuelMoisture / phases.Mw['H2O(l)']) * phases.Hfo['H2O(l)'] # J
+#     enthalpyAgent = en.get_enthalpy(agent) # J
+#     # enthalpyFormationAgent = en.get_enthalpy_formation(agent)
+#     initialEnthalpy = enthalpyFormationFuel + enthalpyFormationMoisture + enthalpyAgent # J
+#     lostEnthalpy = abs(enthalpyFormationFuel) * heatLossFraction
+#     desiredEnthalpy = initialEnthalpy - lostEnthalpy
+#     # print('formation fuel: ', enthalpyFormationFuel)
+#     # print('agent: ', enthalpyAgent)
+#     # # print('formation agent: ', enthalpyFormationAgent)
+#     # print('initial: ', initialEnthalpy)
+    
+#     def residual(Teq):
+#         outlet = gasify_isot(fuel, agent, T=Teq, P=P, charFormation=charFormation, directMethaneConv=directMethaneConv)
+#         finalEnthalpy = en.get_enthalpy(outlet)
+#         error = (finalEnthalpy - desiredEnthalpy)**2
+#         return error
+    
+#     solution = opt.minimize_scalar(residual, method='bounded', bounds=(200, 10000))
+#     Teq = solution.x
+
+#     outlet = gasify_isot(fuel, agent, T=Teq, P=P, charFormation=charFormation, directMethaneConv=directMethaneConv)
+
+#     return outlet
 
 # coalUltimate = [78.4750, 3.9681, 16.0249, 0.7044, 0.7748, 0.0528] # % daf
 # coalAshDB = 0.130816 # fraction, d.b.
