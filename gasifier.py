@@ -74,8 +74,9 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     enthalpyAgent = en.get_enthalpy(agent) # J
     # enthalpyFormationAgent = en.get_enthalpy_formation(agent)
     initialEnthalpy = enthalpyFormationFuel + enthalpyFormationMoisture + enthalpyAgent # J
-    lostEnthalpy = abs(enthalpyFormationFuel) * heatLossFraction
+    lostEnthalpy = abs(fuel.fuelHHV * fuel.get_dry_mass()* 1E6) * heatLossFraction
     desiredEnthalpy = initialEnthalpy - lostEnthalpy
+    # print(initialEnthalpy*1E-6, lostEnthalpy*1E-6)
     # print('formation fuel: ', enthalpyFormationFuel)
     # print('agent: ', enthalpyAgent)
     # # print('formation agent: ', enthalpyFormationAgent)
