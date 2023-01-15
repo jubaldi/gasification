@@ -238,6 +238,12 @@ class Stream(ct.Mixture):
             HHV /= self.get_syngas_amount(basis=basis, water=water, nitrogen=nitrogen)            
         return HHV # MJ/(kg fuel), MJ, MJ/Nm³, MJ/kmol, MJ/kg
 
+    def get_syngas_CGE(self):
+        syngasHHV_NM3 = self.get_syngas_hhv(basis='vol', water=True, nitrogen=True)
+        syngasNM3 = self.get_syngas_amount(basis='vol', water=True, nitrogen=True)
+        CGE = (syngasHHV_NM3 * syngasNM3 / self.get_dry_mass()) / self.fuelHHV
+        return CGE
+
 # Instantiates a stream with 0 moles of each species
 def stream():
     st = Stream([(solid,0),(gas,0)])

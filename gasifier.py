@@ -110,7 +110,7 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
         outlet.P = P
         outlet.equilibrate('TP')
         # At the end, char and methane are added back to the stream
-        outletMoles = initialMoles.copy()
+        outletMoles = outlet.species_moles
         outletMoles[phases.indices['C(gr)']] += charMoles
         outletMoles[phases.indices['CH4']] += directMethaneMoles
         outlet.species_moles = outletMoles
@@ -130,7 +130,6 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     outletMoles[phases.indices['C(gr)']] += charMoles
     outletMoles[phases.indices['CH4']] += directMethaneMoles
     outlet.species_moles = outletMoles
-    # print('last: ', en.get_enthalpy(outlet))
 
     return outlet
 
