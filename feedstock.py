@@ -205,8 +205,12 @@ def create_O2_from_ER(fuelStream, ER):
 
 
 def combine_streams(stream1, stream2):
+    stream1moles = stream1.species_moles
+    stream2moles = stream2.species_moles
+    combinedMoles = [stream1moles[i] + stream2moles[i] for i in range(len(stream1moles))]
 
     combinedStream = phases.stream()
+    combinedStream.species_moles = combinedMoles
 
     return combinedStream
 

@@ -161,8 +161,28 @@ class Stream(ct.Mixture):
             nAsh += self.species_moles[indices[comp]]
         formula = [1, nH/nC, nO/nC, nN/nC, nS/nC, nCl/nC, nAsh/nC]
         return formula
+    
+    def get_fuel_mw(self):
+        formula = self.get_fuel_formula()
+        ashMW = self.fuelAshMW
+        totalMass = 0
+        for i, sp in enumerate(['C(gr)', 'H', 'O', 'N', 'S', 'CL']):
+            moles = formula[i]
+            mw = Mw[sp]
+            mass = moles * mw
+            totalMass += mass
+        totalMass += ashMW * formula[-1]
+        return totalMass
+    
+    def set_HHV_from_LHV(self, LHV):
+        DHfo_liq = Hfo['H2O(l)']*1E-6
+        DHfo_vap = Hfo['H2O']*1E-6
+        a = self.get_fuel_formula()[1]
+        M = self.get_fuel_mw()
+        HHV = LHV - a / (2*M) * (DHfo_liq - DHfo_vap)
+        self.fuelHHV = HHV
 
-    def get_ash_Mw(self):
+    def get_ash_mw(self):
         pass
 
     # Method for computing amount of syngas. This can then be divided by fuelMass to obtain syngas yield.
