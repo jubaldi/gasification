@@ -80,6 +80,13 @@ class Stream(ct.Mixture):
 
     # Method for computing total mass of stream
     def get_mass(self):
+        '''Computes total mass of stream in kg
+        
+        Returns
+        -------
+        mass : float
+            Total mass of stream [kg]
+        '''
         mass = 0
         for i, species in enumerate(self.species_names):
             speciesMole = self.species_moles[i]
@@ -90,12 +97,31 @@ class Stream(ct.Mixture):
     
     # Method for computing mass without moisture
     def get_dry_mass(self):
+        '''Computes total mass of stream, minus H2O mass, in kg
+        
+        Returns
+        -------
+        dryMass : float
+            Dry mass of stream [kg]
+        '''
         dryMass = self.get_mass()
         dryMass -= self.species_moles[indices['H2O']] * Mw['H2O']
         return dryMass
     
     # Method for computing mass of a specific phase
     def get_phase_mass(self, phaseIndex):
+        '''Computes mass of a given phase, in kg
+        
+        Parameters
+        ----------
+        phaseIndex : int
+            0 for solid phase, 1 for gas phase.
+
+        Returns
+        -------
+        phaseMass : float
+            Mass of phase in stream [kg]
+        '''
         phase = self.phase(phaseIndex)
         phaseMass = 0
         for i, species in enumerate(phase.species_names):
@@ -106,6 +132,13 @@ class Stream(ct.Mixture):
     
     # Fuel-specific method for setting moisture content when creating a fuel stream (used in feedstock.py)
     def set_moisture(self, moisture):
+        '''Sets fuel moisture to given amount, by changing H2O content.
+        
+        Parameters
+        ----------
+        moisture : float
+            Moisture content ratio of fuel, dry basis (m/m)
+        '''
         # Sets moisture content to given fraction (%m/m dry basis)
         self.fuelMoisture = moisture
         mass = self.get_mass()
@@ -120,6 +153,14 @@ class Stream(ct.Mixture):
     
     # Fuel-specific method for setting ash composition when creating a fuel stream (used in feedstock.py)
     def redistribute_ash(self, ashComposition):
+        '''Sets fuel ash composition to given parameters, by changing metal oxide content.
+        
+        Parameters
+        ----------
+        ashComposition : list
+            List of 11 main ash component amounts (m/m or %m/m of ash), in this order:
+            SiO2, CaO, AL2O3, Fe2O3, Na2O, K2O, MgO, P2O5, TiO2, SO3, Cr2O3
+        '''
         # Sets a new ash composition, mantaining fixed ash mass, given ash composition distribution (%m/m of ash)
         ashComponents = ['SiO2(hqz)', 'CaO(s)', 'AL2O3(a)', 'Fe2O3(s)', 'Na2O(c)', 'K2O(s)', 'MgO(s)', 'P2O5', 'TiO2(ru)', 'SO3', 'Cr2O3(s)']
         
@@ -150,6 +191,13 @@ class Stream(ct.Mixture):
         self.fuelAshHF = ash_hFormation_absolute / ashMoles
     
     def get_fuel_formula(self):
+        '''Gets the fuel formula.
+        
+        Returns
+        -------
+        formula : list
+            [C, H, O, N, S, Cl, Ash] in moles
+        '''
         nC = self.species_moles[indices['C(gr)']]
         nH = self.species_moles[indices['H']]
         nO = self.species_moles[indices['O']]
@@ -261,7 +309,7 @@ class Stream(ct.Mixture):
     def get_syngas_CGE(self):
         syngasHHV_NM3 = self.get_syngas_hhv(basis='vol', water=True, nitrogen=True)
         syngasNM3 = self.get_syngas_amount(basis='vol', water=True, nitrogen=True)
-        CGE = (syngasHHV_NM3 * syngasNM3 / self.get_dry_mass()) / self.fuelHHV
+        CGE = (syngasHHV_NM3 * syngasNM3 / self.fuelDryMass) / self.fuelHHV
         return CGE
 
 # Instantiates a stream with 0 moles of each species
@@ -279,3 +327,4 @@ for index, species in enumerate(testMix.species_names):
 
 # print(len(testMix.species_names))
 # print(testMix.species_names)
+

@@ -200,9 +200,11 @@ def create_air_from_ER(fuelStream, ER):
 def create_O2_from_ER(fuelStream, ER):
     return create_O2_stream(convert_ER_O2(fuelStream, ER))
 
-
-
-
+def create_steam_from_SCR(fuelStream, SCR):
+    carbon_moles = fuelStream.species_moles[phases.indices['C(gr)']]
+    steamMoles = SCR * carbon_moles
+    steamMass = steamMoles * phases.Mw['H2O']
+    return create_steam_stream(steamMass)
 
 def combine_streams(stream1, stream2):
     stream1moles = stream1.species_moles

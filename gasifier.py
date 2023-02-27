@@ -57,6 +57,7 @@ def gasify_isot(fuel, agent, T=298.15, P=101325, charFormation=0.0, directMethan
     outletMoles[phases.indices['CH4']] += directMethaneMoles
     outlet.species_moles = outletMoles
 
+    outlet.fuelDryMass = fuel.fuelDryMass
     outlet.fuelMoisture = fuel.fuelMoisture
     outlet.fuelHHV = fuel.fuelHHV
     outlet.fuelLHV = fuel.fuelLHV
@@ -130,6 +131,12 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     outletMoles[phases.indices['C(gr)']] += charMoles
     outletMoles[phases.indices['CH4']] += directMethaneMoles
     outlet.species_moles = outletMoles
+
+    outlet.fuelDryMass = fuel.fuelDryMass
+    outlet.fuelMoisture = fuel.fuelMoisture
+    outlet.fuelHHV = fuel.fuelHHV
+    outlet.fuelLHV = fuel.fuelLHV
+    outlet.fuelAshFraction = fuel.fuelAshFraction
 
     return outlet
 
