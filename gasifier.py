@@ -30,6 +30,44 @@ zero = np.zeros(1)
 one = np.ones(1)
 
 def gasify_isot(fuel, agent, T=298.15, P=101325, charFormation=0.0, directMethaneConv=0.0):
+    '''
+    Perform isothermal gasification calculations on a fuel using a gasifying agent (air, O2, steam), under given conditions.
+    Supports char formaton and direct methane conversion model modifications.
+
+    Parameters
+    ----------
+    fuel : Stream object
+        Object from class Stream in phases.py.
+        Contains all information regarding the fuel.
+        Must be created using feedstock.create_fuel_from_db or feedstock.create_stream.
+    agent : Stream object
+        Object from class Stream in phases.py.
+        Contains all information regarding the gasifying agentl.
+        Must be created using feedstock.create_air_stream, feedstock.create_O2_stream,
+        feedstock.create_steam_stream,  feedstock.create_air_from_ER, 
+        feedstock.create_O2_from_ER, or  feedstock.create_steam_from_SCR
+    T : float
+        Absolute temperature in K.
+        Default: 298.15 K
+    P : float
+        Absolute pressure in Pa.
+        Default: 101325 Pa
+    charFormation : float
+        Parameter determining percentage of C converted to char (unreacted solid carbon).
+        Varies from 0.0 to 1.0.
+        Default: 0.0
+    directMethaneConv : float
+        Parameter determining percentage of C converted to methane.
+        Varies from 0.0 to 1.0.
+        Default: 0.0
+
+    Returns
+    -------
+    outlet : Stream object
+        Object from class Stream in phases.py.
+        Contains all information regarding the outlet of the gasifier.
+        You can extract this information using the relevant functions (methods) of the Stream class.
+    '''
     # CHAR FORMATION AND DIRECT METHANE CONVERSION
     # Procedure according to Li et al. (2004) (10.1016/S0961-9534(03)00084-9)
     # Fraction of carbon that goes through equilibrium process:
@@ -66,6 +104,48 @@ def gasify_isot(fuel, agent, T=298.15, P=101325, charFormation=0.0, directMethan
     return outlet
 
 def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charFormation=0.0, directMethaneConv=0.0, isot=False):
+    '''
+    Perform non-isothermal gasification calculations on a fuel using a gasifying agent (air, O2, steam), under given conditions.
+    Supports char formaton, direct methane conversion and heat loss model modifications.
+
+    Parameters
+    ----------
+    fuel : Stream object
+        Object from class Stream in phases.py.
+        Contains all information regarding the fuel.
+        Must be created using feedstock.create_fuel_from_db or feedstock.create_stream.
+    agent : Stream object
+        Object from class Stream in phases.py.
+        Contains all information regarding the gasifying agentl.
+        Must be created using feedstock.create_air_stream, feedstock.create_O2_stream,
+        feedstock.create_steam_stream,  feedstock.create_air_from_ER, 
+        feedstock.create_O2_from_ER, or  feedstock.create_steam_from_SCR
+    T0 : float
+        Absolute temperature of the initial reagents, in K.
+        Default: 298.15 K
+    P : float
+        Absolute pressure in Pa.
+        Default: 101325 Pa
+    heatLossFraction : float
+        Parameter determining percentage of heat lost to environment.
+        Varies from 0.0 to 1.0.
+        Default: 0.0
+    charFormation : float
+        Parameter determining percentage of C converted to char (unreacted solid carbon).
+        Varies from 0.0 to 1.0.
+        Default: 0.0
+    directMethaneConv : float
+        Parameter determining percentage of C converted to methane.
+        Varies from 0.0 to 1.0.
+        Default: 0.0
+
+    Returns
+    -------
+    outlet : Stream object
+        Object from class Stream in phases.py.
+        Contains all information regarding the outlet of the gasifier.
+        You can extract this information using the relevant functions (methods) of the Stream class.
+    '''
     fuel.T = T0
     fuel.P = P
     agent.T = T0
