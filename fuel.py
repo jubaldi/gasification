@@ -93,7 +93,7 @@ def moisture(fuelID, basis="db"):
 def proximate(fuelID, basis="db"):
     '''
     Gets the proximate analysis for a given fuel. 
-    The fuel must be available in the database (file: 'fuels-updated.csv').
+    The fuel must be available in the database (file: 'fuels.csv').
 
     Parameters
     ----------
@@ -206,7 +206,7 @@ def ash_comp(fuelID):
 def ultimate(fuelID, basis="db"):
     '''
     Gets the ultimate analysis for a given fuel. 
-    The fuel must be available in the database (file: 'fuels-updated.csv').
+    The fuel must be available in the database (file: 'fuels.csv').
 
     Parameters
     ----------
@@ -338,7 +338,7 @@ def fuel_comp2(ash, ult, ashCompos):
 def add_to_database(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
     '''
     Adds a new fuel to the database.
-    The fuel must not be available in the database (file: 'fuels-updated.csv').
+    The fuel must not be available in the database (file: 'fuels.csv').
 
     Parameters
     ----------
@@ -409,7 +409,7 @@ def add_to_database(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
     fuels.loc[fuelID,'TiO2'] = ashC[8]
     fuels.loc[fuelID,'SO3'] = ashC[9]
     fuels.loc[fuelID,'Cr2O3'] = ashC[10]
-    fuels.to_csv('fuels-updated.csv')
+    fuels.to_csv('data/fuels.csv')
 
 def get_hv(fuelID, type='both', moist=0.0):
     '''
