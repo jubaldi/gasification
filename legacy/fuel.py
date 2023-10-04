@@ -1,11 +1,13 @@
-"""Defines functions to get values from a fuel database.
+#!/usr/bin/env python
+
+"""This script defines functions to get values from a fuel database.
 
 The fuel database is a predefined CSV file ('fuels.csv'). The file can be 
 edited using any spreadsheet editor to add new fuel compounds.
 
-First made by: Rodolfo Rodrigues, rodolfo.rodrigues@ufsm.br
-Revamp by: Nícolas Anése, nicolasanese19@gmail.com
-Date: April, 2012, rev.: December, 2022
+@author = Rodolfo Rodrigues
+@contact = rodolfo.rodrigues@ufsm.br
+@data = April, 2012, rev.: June, 2013 (adapted to use cython Cantera)
 """
 
 # FIXME: 2013/05/25 Not possible to use a list of single value as parameter to 
@@ -16,25 +18,30 @@ Date: April, 2012, rev.: December, 2022
 # TODO: 2022/05/01 Find ash composition for petroleum coke.
 # TODO: 2022/05/01 Add a cantera mixture for steam + water.
 # TODO: 2022/05/01 Find heating values HHV and LHV from correlations.
-# TODO: 2022/05/01 Should we assume that remaining mass is fixed carbon?
-# TODO: 2022/05/01 Get heat of formation.
+# QSTN: 2022/05/01 Should we assume that remaining mass is fixed carbon?
+
+# TODO LATER: 2022/05/01 Get heat of formation.
 
 # MISTAKE: (1 - ash) ???
 
 #==============================================================================
 # import libraries
 #==============================================================================
+import sys
 import cantera as ct
-import json
 import numpy as np
 import pandas as pd
+import json
+import scipy.optimize as opt
+
+#sys.path.insert(1, 'e:\\Área de Trabalho\\IC Rodolfo\\gasification\\gasifier')
 
 #==============================================================================
 # special functions
 #==============================================================================
 
 # Create a dataframe from the csv
-with open('data/fuels.csv','r') as f1:
+with open('legacy/fuels-updated.csv','r') as f1:
     fuels = pd.read_csv(f1, sep=',', header=0, index_col=0)
     f1.close()
 
@@ -46,7 +53,7 @@ myID = fuels.index.values
 # HHV, LHV: read directly
 # C, H, O, N, S, Cl: read directly then divide by 100
 
-with open('data/ashes.json', 'r') as ashFile:
+with open('legacy/data/fuel-data/ashes.json', 'r') as ashFile:
     ashData = json.load(ashFile)
     ashFile.close()
 
@@ -93,7 +100,7 @@ def moisture(fuelID, basis="db"):
 def proximate(fuelID, basis="db"):
     '''
     Gets the proximate analysis for a given fuel. 
-    The fuel must be available in the database (file: 'fuels.csv').
+    The fuel must be available in the database (file: 'fuels-updated.csv').
 
     Parameters
     ----------
@@ -142,7 +149,7 @@ def proximate(fuelID, basis="db"):
 
     return prox
 
-def ash_comp(fuelID):
+def ashComp(fuelID):
     '''
     Gets the ash composition for a given fuel. 
     The fuel must be available in the database (file: 'fuels.csv').
@@ -206,7 +213,7 @@ def ash_comp(fuelID):
 def ultimate(fuelID, basis="db"):
     '''
     Gets the ultimate analysis for a given fuel. 
-    The fuel must be available in the database (file: 'fuels.csv').
+    The fuel must be available in the database (file: 'fuels-updated.csv').
 
     Parameters
     ----------
@@ -263,7 +270,7 @@ def ultimate(fuelID, basis="db"):
     
     return ult
 
-def fuel_comp(fuelID):
+def fuelComp(fuelID):
     '''
     Gets the full mass composition for the dry fuel.
     The fuel must be available in the database (file: 'fuels.csv').
@@ -281,7 +288,7 @@ def fuel_comp(fuelID):
 
     ash = proximate(fuelID)["Ash"]
     ult = ultimate(fuelID)
-    ashCompos = ash_comp(fuelID)
+    ashCompos = ashComp(fuelID)
 
     fuelComp = {}
 
@@ -299,7 +306,7 @@ def fuel_comp(fuelID):
 
     return fuelComp
 
-def fuel_comp2(ash, ult, ashCompos):
+def fuelComp2(ash, ult, ashCompos):
     '''
     Get the full mass composition for the dry fuel.
     The fuel does not need to be in the database.
@@ -335,10 +342,10 @@ def fuel_comp2(ash, ult, ashCompos):
 
     return fuelComp
 
-def add_to_database(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
+def addToDatabase(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
     '''
     Adds a new fuel to the database.
-    The fuel must not be available in the database (file: 'fuels.csv').
+    The fuel must not be available in the database (file: 'fuels-updated.csv').
 
     Parameters
     ----------
@@ -409,9 +416,9 @@ def add_to_database(fuelID, Info, moist, prox, HV, biochem, ult, ashC):
     fuels.loc[fuelID,'TiO2'] = ashC[8]
     fuels.loc[fuelID,'SO3'] = ashC[9]
     fuels.loc[fuelID,'Cr2O3'] = ashC[10]
-    fuels.to_csv('data/fuels.csv')
+    fuels.to_csv('fuels-updated.csv')
 
-def get_hv(fuelID, type='both', moist=0.0):
+def HV(fuelID, type='both', moist=0.0):
     '''
     Gets the heating values (HHV or LHV) for a given fuel.
     The fuel must be available in the database (file: 'fuels.csv').
