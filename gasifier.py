@@ -71,6 +71,11 @@ def gasify_isot(fuel, agent, T=298.15, P=101325, charFormation=0.0, directMethan
     # CHAR FORMATION AND DIRECT METHANE CONVERSION
     # Procedure according to Li et al. (2004) (10.1016/S0961-9534(03)00084-9)
     # Fraction of carbon that goes through equilibrium process:
+    if charFormation + directMethaneConv > 1:
+        raise Exception('Not enough carbon moles, char/methane formation too high')
+    max_methane_conv = (fuel.species_moles[phases.indices['H']]/4)/fuel.species_moles[phases.indices['C(gr)']]
+    if directMethaneConv > max_methane_conv:
+        raise Exception('Not enough hydrogen moles, methane formation too high')
     carbonEquilibriumFraction = 1 - charFormation - directMethaneConv
     carbonMoles = fuel.species_moles[phases.indices['C(gr)']]
     carbonEquilibriumMoles = carbonMoles * carbonEquilibriumFraction
@@ -146,6 +151,11 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
         Contains all information regarding the outlet of the gasifier.
         You can extract this information using the relevant functions (methods) of the Stream class.
     '''
+    if charFormation + directMethaneConv > 1:
+        raise Exception('Not enough carbon moles, char/methane formation too high')
+    max_methane_conv = (fuel.species_moles[phases.indices['H']]/4)/fuel.species_moles[phases.indices['C(gr)']]
+    if directMethaneConv > max_methane_conv:
+        raise Exception('Not enough hydrogen moles, methane formation too high')
     fuel.T = T0
     fuel.P = P
     agent.T = T0
