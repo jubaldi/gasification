@@ -195,21 +195,33 @@ def gasify_nonisot(fuel, agent, T0=298.15, P=101325, heatLossFraction=0.0, charF
     outlet.equilibrate('TP')
 
     initialMoles = outlet.species_moles
+    outletMoles = outlet.species_moles
+    outletMoles[phases.indices['C(gr)']] += charMoles
+    outletMoles[phases.indices['CH4']] += directMethaneMoles
+    outlet.species_moles = outletMoles
 
     def residual(Teq):
-        outlet.T = Teq
-        outlet.P = P
-        outlet.equilibrate('TP')
-        # At the end, char and methane are added back to the stream
-        outletMoles = outlet.species_moles
-        outletMoles[phases.indices['C(gr)']] += charMoles
-        outletMoles[phases.indices['CH4']] += directMethaneMoles
-        outlet.species_moles = outletMoles
-        finalEnthalpy = en.get_enthalpy(outlet)
-        error = (finalEnthalpy - desiredEnthalpy)**2
-        return error
+        if Teq <= 273:
+            return np.inf
+        try:
+            outletMoles = outlet.species_moles
+            outletMoles[phases.indices['C(gr)']] = outletMoles[phases.indices['C(gr)']]- charMoles
+            outletMoles[phases.indices['CH4']] = outletMoles[phases.indices['CH4']] - directMethaneMoles
+            outlet.species_moles = outletMoles
+            outlet.T = Teq
+            outlet.P = P
+            outlet.equilibrate('TP')
+            outletMoles = outlet.species_moles
+            outletMoles[phases.indices['C(gr)']] += charMoles
+            outletMoles[phases.indices['CH4']] += directMethaneMoles
+            outlet.species_moles = outletMoles
+            finalEnthalpy = en.get_enthalpy(outlet)
+            error = (finalEnthalpy - desiredEnthalpy)**2
+            return error
+        except ct.CanteraError:
+            return np.inf
     
-    solution = opt.minimize_scalar(residual, method='bounded', bounds=(200, 10000))
+    solution = opt.minimize_scalar(residual, method='bounded', bounds=(200, 8000), options={'xatol': 1e-5})
     Teq = solution.x
 
     outlet.species_moles = initialMoles
